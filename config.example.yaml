@@ -1,0 +1,82 @@
+# Example Tintri OpenTelemetry Receiver Configuration
+
+receivers:
+  tintri:
+    # Tintri Global Center Configuration (optional but recommended)
+    tgc:
+      endpoint: "https://tgc.example.com"
+      username: "admin"
+      password: "${env:TGC_PASSWORD}"
+      api_version: "v310"
+      collection_interval: 300s  # 5 minutes
+      enable_fleet_metrics: true
+      timeout: 30s
+      insecure_skip_verify: false
+    
+    # VMstore Configuration
+    vmstores:
+      # First VMstore
+      - endpoint: "https://vmstore1.example.com"
+        username: "admin"
+        password: "${env:VMSTORE1_PASSWORD}"
+        api_version: "v310"
+        collection_interval: 60s
+        timeout: 30s
+        insecure_skip_verify: false
+        
+        # Object collection toggles
+        collect_system: true
+        collect_datastores: true
+        collect_vms: true
+        collect_vdisks: true
+        
+        # Advanced options
+        vdisk_capacity_collection: false  # Set to true to collect VDISK capacity (slower)
+      
+      # Second VMstore (example)
+      - endpoint: "https://vmstore2.example.com"
+        username: "admin"
+        password: "${env:VMSTORE2_PASSWORD}"
+        api_version: "v310"
+        collection_interval: 60s
+        timeout: 30s
+        collect_system: true
+        collect_datastores: true
+        collect_vms: true
+        collect_vdisks: false  # Disable VDISK collection for this VMstore
+    
+    # Resource attributes (applied to all metrics)
+    resource_attributes:
+      tintri.site: "datacenter-east"
+      tintri.environment: "production"
+      deployment.region: "us-east-1"
+
+# OpenTelemetry Exporters (configure based on your backend)
+exporters:
+  # Prometheus exporter
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+  
+  # OTLP exporter (for sending to OTEL collector)
+  otlp:
+    endpoint: "otel-collector:4317"
+    insecure: true
+  
+  # Logging exporter (for debugging)
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+# Service pipeline configuration
+service:
+  pipelines:
+    metrics:
+      receivers: [tintri]
+      processors: []
+      exporters: [prometheus, logging]
+  
+  # Telemetry configuration
+  telemetry:
+    logs:
+      level: info
