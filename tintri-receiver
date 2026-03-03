@@ -1,0 +1,4 @@
+#!/bin/bash
+source ./.credentials
+cd ./src/
+uv run ./cli.py "$@"
