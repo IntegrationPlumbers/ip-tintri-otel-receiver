@@ -223,7 +223,7 @@ class VMstoreCollector:
             self._vm_list_cache = vms
             
             for vm in vms:
-                vm_uuid = vm.get("uuid")
+                vm_uuid = vm.get("uuid").get("uuid")
                 if not vm_uuid:
                     continue
                 
@@ -348,7 +348,7 @@ class VMstoreCollector:
         count = 0
         
         for datastore in self._datastore_list_cache:
-            datastore_uuid = datastore.get("uuid")
+            datastore_uuid = datastore.get("uuid").get("uuid")
             if not datastore_uuid:
                 continue
             
