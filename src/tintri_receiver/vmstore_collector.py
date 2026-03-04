@@ -119,15 +119,16 @@ class VMstoreCollector:
             metrics.extend(system_metrics)
             
             # Collect system alerts
-            alerts = self.vmstore_client.get_alerts(
-                entity_type="SYSTEM", entity_uuid=vmstore_uuid, cleared=False
-            )
-            metrics.append({
-                "name": "tintri.system.alerts.active",
-                "value": len(alerts),
-                "unit": "count",
-                "attributes": attributes,
-            })
+            # !!! These only apply to TGC
+            # alerts = self.vmstore_client.get_alerts(
+            #     entity_type="SYSTEM", entity_uuid=vmstore_uuid, cleared=False
+            # )
+            # metrics.append({
+            #     "name": "tintri.system.alerts.active",
+            #     "value": len(alerts),
+            #     "unit": "count",
+            #     "attributes": attributes,
+            # })
         except Exception as e:
             logger.error(f"Error collecting system metrics: {e}")
         
