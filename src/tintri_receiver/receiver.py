@@ -43,7 +43,7 @@ class TintriReceiver:
         """
         self.config = config
         self.config.validate()
-        print(config)
+        # print(config)
         # TGC components
         self.tgc_client: Optional[TGCRestClient] = None
         self.tgc_manager: Optional[TGCInventoryManager] = None
@@ -80,6 +80,7 @@ class TintriReceiver:
             logger.info("> Using console metric exporter")
             # Default to console exporter for demonstration
             # metric_exporter = ConsoleMetricExporter()
+            print(self.config)
             metric_exporter = OTLPMetricExporter(
                 self.config.exporters.prometheus.endpoint
             )        

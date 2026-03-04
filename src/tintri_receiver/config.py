@@ -148,7 +148,7 @@ class TintriReceiverConfig:
         # Parse resource attributes
         resource_attrs = receiver_data.get("resource_attributes", {})
         
-        exporters = receiver_data.get("exporters", {} )
+        exporters = data.get("exporters", {} )
 
         return cls(
             tgc=tgc_config,
