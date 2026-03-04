@@ -89,7 +89,7 @@ class TGCInventoryManager:
             
             # Fetch VMs
             vms = self.tgc_client.get_vms()
-            self.vm_cache = {vm.get("uuid"): vm for vm in vms if vm.get("uuid")}
+            self.vm_cache = {vm.get("uuid").get("uuid"): vm for vm in vms if vm.get("uuid")}
             logger.debug(f"Cached {len(self.vm_cache)} VMs")
             
             # Fetch tenants
