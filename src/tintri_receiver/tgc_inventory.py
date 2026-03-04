@@ -76,14 +76,14 @@ class TGCInventoryManager:
             # Fetch VMstores
             vmstores = self.tgc_client.get_vmstores()
             self.vmstore_cache = {
-                vs.get("uuid"): vs for vs in vmstores if vs.get("uuid")
+                vs.get("uuid").get("uuid"): vs for vs in vmstores if vs.get("uuid")
             }
             logger.debug(f"Cached {len(self.vmstore_cache)} VMstores")
             
             # Fetch datastores
             datastores = self.tgc_client.get_datastores()
             self.datastore_cache = {
-                ds.get("uuid"): ds for ds in datastores if ds.get("uuid")
+                ds.get("uuid").get("uuid"): ds for ds in datastores if ds.get("uuid")
             }
             logger.debug(f"Cached {len(self.datastore_cache)} datastores")
             
@@ -95,14 +95,14 @@ class TGCInventoryManager:
             # Fetch tenants
             tenants = self.tgc_client.get_tenants()
             self.tenant_cache = {
-                t.get("uuid"): t for t in tenants if t.get("uuid")
+                t.get("uuid").get("uuid"): t for t in tenants if t.get("uuid")
             }
             logger.debug(f"Cached {len(self.tenant_cache)} tenants")
             
             # Fetch applications
             applications = self.tgc_client.get_applications()
             self.application_cache = {
-                app.get("uuid"): app for app in applications if app.get("uuid")
+                app.get("uuid").get("uuid"): app for app in applications if app.get("uuid")
             }
             logger.debug(f"Cached {len(self.application_cache)} applications")
             

@@ -185,13 +185,15 @@ class TGCRestClient:
         Returns:
             List of tenant information
         """
-        result = self._make_request("GET", "tenant")
-        
-        if isinstance(result, dict) and "items" in result:
-            return result["items"]
-        elif isinstance(result, list):
-            return result
         return []
+        # !!! TODO - Verify or remove this endpoint
+        # result = self._make_request("GET", "tenant")
+        
+        # if isinstance(result, dict) and "items" in result:
+        #     return result["items"]
+        # elif isinstance(result, list):
+        #     return result
+        # return []
     
     def get_applications(self) -> List[Dict[str, Any]]:
         """Get application groups from TGC.
