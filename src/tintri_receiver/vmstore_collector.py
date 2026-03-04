@@ -62,10 +62,10 @@ class VMstoreCollector:
         
         try:
             # Collect system metrics
-            if self.collect_system:
-                system_metrics = self.collect_system_metrics()
-                all_metrics.extend(system_metrics)
-                logger.debug(f"Collected {len(system_metrics)} system metrics")
+            # if self.collect_system:
+            #     system_metrics = self.collect_system_metrics()
+            #     all_metrics.extend(system_metrics)
+            #     logger.debug(f"Collected {len(system_metrics)} system metrics")
             
             # Collect datastore metrics
             if self.collect_datastores:
