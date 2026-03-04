@@ -23,6 +23,7 @@ class TGCRestClient:
         username: str,
         password: str,
         api_version: str = "v310",
+        full_api_version: str = "v310.191",
         timeout: int = 30,
         insecure_skip_verify: bool = False,
     ):
@@ -40,6 +41,7 @@ class TGCRestClient:
         self.username = username
         self.password = password
         self.api_version = api_version
+        self.full_api_version = full_api_version
         self.timeout = timeout
         self.session_token: Optional[str] = None
         self.token_expiry: float = 0
@@ -66,7 +68,13 @@ class TGCRestClient:
         try:
             response = self.session.post(
                 url,
-                json={"username": self.username, "password": self.password},
+                json={
+                    "typeId": "com.tintri.api.rest.vcommon.dto.rbac.RestApiCredentials",
+                    "username": self.username, 
+                    "password": self.password,
+                    "fullApiVersion": self.full_api_version,
+                    "authType": "LOCAL"
+                    },
                 timeout=self.timeout,
             )
             response.raise_for_status()
