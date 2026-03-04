@@ -117,7 +117,8 @@ class TintriReceiverConfig:
     tgc: Optional[TGCConfig] = None
     vmstores: List[VMstoreConfig] = field(default_factory=list)
     resource_attributes: Dict[str, str] = field(default_factory=dict)
-    
+    exporters: Optional[Dict[Dict]] = False
+
     @classmethod
     def from_yaml(cls, file_path: str) -> "TintriReceiverConfig":
         """Load configuration from YAML file."""
@@ -145,10 +146,13 @@ class TintriReceiverConfig:
         # Parse resource attributes
         resource_attrs = receiver_data.get("resource_attributes", {})
         
+        exporters = receiver_data.get("exporters", {} )
+
         return cls(
             tgc=tgc_config,
             vmstores=vmstore_configs,
             resource_attributes=resource_attrs,
+            exporters=exporters,
         )
     
     def validate(self) -> None:
