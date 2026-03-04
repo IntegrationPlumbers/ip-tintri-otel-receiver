@@ -260,7 +260,7 @@ class TGCRestClient:
         if not cleared:
             params["cleared"] = "false"
         
-        result = self._make_request("GET", "alerts", params=params)
+        result = self._make_request("GET", "alert", params=params)
         
         if isinstance(result, dict) and "items" in result:
             return result["items"]
