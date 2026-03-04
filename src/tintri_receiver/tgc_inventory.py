@@ -100,11 +100,11 @@ class TGCInventoryManager:
             logger.debug(f"Cached {len(self.tenant_cache)} tenants")
             
             # Fetch applications
-            applications = self.tgc_client.get_applications()
-            self.application_cache = {
-                app.get("uuid").get("uuid"): app for app in applications if app.get("uuid")
-            }
-            logger.debug(f"Cached {len(self.application_cache)} applications")
+            # applications = self.tgc_client.get_applications()
+            # self.application_cache = {
+            #     app.get("uuid").get("uuid"): app for app in applications if app.get("uuid")
+            # }
+            # logger.debug(f"Cached {len(self.application_cache)} applications")
             
             # Fetch hypervisors
             self.hypervisor_cache = self.tgc_client.get_hypervisors()
