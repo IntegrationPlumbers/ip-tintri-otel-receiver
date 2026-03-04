@@ -19,7 +19,7 @@ class VMstoreCollector:
     def __init__(
         self,
         vmstore_client: VMstoreRestClient,
-        vmstore_id: str,
+        vmstore_id: str = "default",
         tgc_manager: Optional[TGCInventoryManager] = None,
         collect_system: bool = True,
         collect_datastores: bool = True,
