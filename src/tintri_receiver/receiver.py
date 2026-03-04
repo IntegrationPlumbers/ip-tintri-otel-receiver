@@ -10,6 +10,8 @@ from opentelemetry.sdk.metrics.export import (
     PeriodicExportingMetricReader,
     ConsoleMetricExporter,
 )
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+
 from opentelemetry.sdk.resources import Resource
 
 from tintri_receiver.config import TintriReceiverConfig
@@ -75,9 +77,12 @@ class TintriReceiver:
         
         # Setup metric exporter
         if metric_exporter is None:
+            logger.info("> Using console metric exporter")
             # Default to console exporter for demonstration
-            metric_exporter = ConsoleMetricExporter()
-        
+            # metric_exporter = ConsoleMetricExporter()
+            metric_exporter = OTLPMetricExporter(
+                self.config.exporters.prometheus.endpoint
+            )        
         # Create metric reader
         reader = PeriodicExportingMetricReader(
             exporter=metric_exporter,
@@ -242,6 +247,7 @@ class TintriReceiver:
             metrics: List of metric dictionaries
         """
         # Group metrics by name for batch creation
+        logger.info("> Exporting Metrics")
         metric_groups: Dict[str, List[Dict[str, Any]]] = {}
         
         for metric in metrics:
