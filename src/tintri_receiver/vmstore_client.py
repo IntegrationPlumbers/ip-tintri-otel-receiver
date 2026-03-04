@@ -246,7 +246,7 @@ class VMstoreRestClient:
         if not cleared:
             params["cleared"] = "false"
         
-        result = self._make_request("GET", "alert", params=params)
+        result = self._make_request("GET", "alert/filter", params=params)
         
         # API may return dict with 'items' key or list directly
         if isinstance(result, dict) and "items" in result:
