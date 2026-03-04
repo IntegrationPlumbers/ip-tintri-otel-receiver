@@ -46,6 +46,7 @@ class TGCConfig:
             enable_fleet_metrics=data.get("enable_fleet_metrics", True),
             timeout=timeout,
             insecure_skip_verify=data.get("insecure_skip_verify", False),
+            exporters=data.get("exporters", {}),
         )
     
     @staticmethod
@@ -107,6 +108,7 @@ class VMstoreConfig:
             collect_vms=data.get("collect_vms", True),
             collect_vdisks=data.get("collect_vdisks", True),
             vdisk_capacity_collection=data.get("vdisk_capacity_collection", False),
+            exporters=data.get("exporters", {}),
         )
 
 
