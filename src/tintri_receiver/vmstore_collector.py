@@ -156,7 +156,7 @@ class VMstoreCollector:
             self._datastore_list_cache = datastores
             
             for datastore in datastores:
-                datastore_uuid = datastore.get("uuid")
+                datastore_uuid = datastore.get("uuid").get("uuid")
                 if not datastore_uuid:
                     continue
                 
