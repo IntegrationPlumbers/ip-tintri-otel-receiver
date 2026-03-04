@@ -180,12 +180,12 @@ class VMstoreCollector:
                     )
                     metrics.extend(capacity_metrics)
                     
-                    # Collect alerts
-                    alerts = self.vmstore_client.get_alerts(
-                        entity_type="DATASTORE",
-                        entity_uuid=datastore_uuid,
-                        cleared=False,
-                    )
+                    # # Collect alerts
+                    # alerts = self.vmstore_client.get_alerts(
+                    #     entity_type="DATASTORE",
+                    #     entity_uuid=datastore_uuid,
+                    #     cleared=False,
+                    # )
                     metrics.append({
                         "name": "tintri.datastore.alerts.active",
                         "value": len(alerts),
@@ -246,15 +246,15 @@ class VMstoreCollector:
                     metrics.extend(capacity_metrics)
                     
                     # Collect alerts
-                    alerts = self.vmstore_client.get_alerts(
-                        entity_type="VM", entity_uuid=vm_uuid, cleared=False
-                    )
-                    metrics.append({
-                        "name": "tintri.vm.alerts.active",
-                        "value": len(alerts),
-                        "unit": "count",
-                        "attributes": attributes,
-                    })
+                    # alerts = self.vmstore_client.get_alerts(
+                    #     entity_type="VM", entity_uuid=vm_uuid, cleared=False
+                    # )
+                    # metrics.append({
+                    #     "name": "tintri.vm.alerts.active",
+                    #     "value": len(alerts),
+                    #     "unit": "count",
+                    #     "attributes": attributes,
+                    # })
                 except Exception as e:
                     logger.warning(f"Error collecting metrics for VM {vm_uuid}: {e}")
         except Exception as e:
