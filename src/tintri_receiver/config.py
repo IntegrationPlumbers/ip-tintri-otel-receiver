@@ -19,6 +19,7 @@ class TGCConfig:
     enable_fleet_metrics: bool = True
     timeout: int = 30  # seconds
     insecure_skip_verify: bool = False
+    exporters: Optional[Dict[Dict]] = False
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Optional["TGCConfig"]:
@@ -69,6 +70,7 @@ class VMstoreConfig:
     collection_interval: int = 60  # seconds
     timeout: int = 30  # seconds
     insecure_skip_verify: bool = False
+    exporters: Optional[Dict[Dict]] = False
     
     # Collection toggles
     collect_system: bool = True

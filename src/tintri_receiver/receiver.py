@@ -43,7 +43,7 @@ class TintriReceiver:
         """
         self.config = config
         self.config.validate()
-        
+        print(config)
         # TGC components
         self.tgc_client: Optional[TGCRestClient] = None
         self.tgc_manager: Optional[TGCInventoryManager] = None
