@@ -186,12 +186,12 @@ class VMstoreCollector:
                     #     entity_uuid=datastore_uuid,
                     #     cleared=False,
                     # )
-                    metrics.append({
-                        "name": "tintri.datastore.alerts.active",
-                        "value": len(alerts),
-                        "unit": "count",
-                        "attributes": attributes,
-                    })
+                    # metrics.append({
+                    #     "name": "tintri.datastore.alerts.active",
+                    #     "value": len(alerts),
+                    #     "unit": "count",
+                    #     "attributes": attributes,
+                    # })
                 except Exception as e:
                     logger.warning(
                         f"Error collecting metrics for datastore {datastore_uuid}: {e}"

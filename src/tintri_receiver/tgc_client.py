@@ -216,6 +216,7 @@ class TGCRestClient:
             List of hypervisor information (vCenter, clusters, hosts)
         """
         # Try common endpoint names
+        return [] # Disabling, not relevant
         for endpoint in ["hypervisor", "vcenter", "vcenters"]:
             try:
                 result = self._make_request("GET", endpoint)
