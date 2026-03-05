@@ -52,6 +52,9 @@ class TintriReceiver:
         self.vmstore_clients: List[VMstoreRestClient] = []
         self.vmstore_collectors: List[VMstoreCollector] = []
         
+        # Gauge cache - create each gauge only once
+        self._gauges: Dict[str, Any] = {}
+
         # OpenTelemetry setup
         self._setup_otel(metric_exporter)
         
@@ -77,12 +80,16 @@ class TintriReceiver:
         
         # Setup metric exporter
         if metric_exporter is None:
-            logger.info("> Creating OTLP metric exporter")
-            # Default to console exporter for demonstration
-            # metric_exporter = ConsoleMetricExporter()
-            # print(self.config.exporters)
+            prometheus_config = self.config.exporters.get("prometheus", {})
+            endpoint = prometheus_config.get("endpoint", "localhost:9090")
+            # Ensure the endpoint includes the OTLP metrics path
+            if not endpoint.startswith("http"):
+                endpoint = f"http://{endpoint}"
+            if not endpoint.endswith("/api/v1/otlp/v1/metrics"):
+                endpoint = endpoint.rstrip("/") + "/api/v1/otlp/v1/metrics"
+            logger.info(f"> Creating OTLP metric exporter targeting: {endpoint}")
             metric_exporter = OTLPMetricExporter(
-                self.config.exporters.get("prometheus").get("endpoint")
+                endpoint=endpoint,
             )        
         # Create metric reader
         reader = PeriodicExportingMetricReader(
@@ -262,15 +269,19 @@ class TintriReceiver:
         
         # Create OTEL metrics
         for metric_name, metric_list in metric_groups.items():
-            logger.info(f" > Exporting: {metric_name}")
+            logger.debug(f" > Exporting: {metric_name} ({len(metric_list)} series)")
             try:
-                # Create gauge for each metric (all Tintri metrics are gauges)
-                gauge = self.meter.create_gauge(
-                    name=metric_name,
-                    unit=metric_list[0].get("unit", ""),
-                    description=f"Tintri metric: {metric_name}",
-                )
-                
+                # Reuse cached gauge or create once
+                if metric_name not in self._gauges:
+                    self._gauges[metric_name] = self.meter.create_gauge(
+                        name=metric_name,
+                        unit=metric_list[0].get("unit", ""),
+                        description=f"Tintri metric: {metric_name}",
+                    )
+                    logger.debug(f"   Created new gauge: {metric_name}")
+
+                gauge = self._gauges[metric_name]
+
                 # Record observations
                 for metric in metric_list:
                     gauge.set(
@@ -278,7 +289,9 @@ class TintriReceiver:
                         attributes=metric.get("attributes", {}),
                     )
             except Exception as e:
-                logger.warning(f"Error creating metric {metric_name}: {e}")
+                logger.warning(f"Error exporting metric {metric_name}: {e}", exc_info=True)
+
+        logger.info(f"> Exported {len(metrics)} metrics across {len(metric_groups)} metric names")
     
     def collect_once(self) -> List[Dict[str, Any]]:
         """Collect metrics once from all VMstores.
