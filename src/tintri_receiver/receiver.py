@@ -80,9 +80,9 @@ class TintriReceiver:
             logger.info("> Using console metric exporter")
             # Default to console exporter for demonstration
             # metric_exporter = ConsoleMetricExporter()
-            print(self.config)
+            # print(self.config.exporters)
             metric_exporter = OTLPMetricExporter(
-                self.config.exporters.prometheus.endpoint
+                self.config.exporters.get("prometheus").get("endpoint")
             )        
         # Create metric reader
         reader = PeriodicExportingMetricReader(
@@ -259,6 +259,7 @@ class TintriReceiver:
         
         # Create OTEL metrics
         for metric_name, metric_list in metric_groups.items():
+            logger.info(f" > Exporting: {metric_name}")
             try:
                 # Create gauge for each metric (all Tintri metrics are gauges)
                 gauge = self.meter.create_gauge(

@@ -72,18 +72,24 @@ class VMstoreCollector:
                 datastore_metrics = self.collect_datastore_metrics()
                 all_metrics.extend(datastore_metrics)
                 logger.debug(f"Collected {len(datastore_metrics)} datastore metrics")
+            else:
+                print("> No datastore metrics")
             
             # Collect VM metrics
             if self.collect_vms:
                 vm_metrics = self.collect_vm_metrics()
                 all_metrics.extend(vm_metrics)
                 logger.debug(f"Collected {len(vm_metrics)} VM metrics")
+            else:
+                print("> No VM metrics")
             
             # Collect VDISK metrics
             if self.collect_vdisks:
                 vdisk_metrics = self.collect_vdisk_metrics()
                 all_metrics.extend(vdisk_metrics)
                 logger.debug(f"Collected {len(vdisk_metrics)} VDISK metrics")
+            else:
+                print("> No VDISK metrics")
             
             logger.info(
                 f"Collected {len(all_metrics)} total metrics from VMstore {self.vmstore_id}"
