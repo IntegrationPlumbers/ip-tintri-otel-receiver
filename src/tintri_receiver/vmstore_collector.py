@@ -401,6 +401,7 @@ class VMstoreCollector:
             tgc_attrs = self.tgc_manager.get_vmstore_attributes(vmstore_uuid)
             attributes.update(tgc_attrs)
         else:
+            print("!! > Missing TGC manager instance _get_vmstore_attributes")
             # Use VMstore endpoint as name if TGC not available
             attributes["tintri.vmstore.name"] = self.vmstore_id
         
@@ -420,6 +421,8 @@ class VMstoreCollector:
         if self.tgc_manager:
             tgc_attrs = self.tgc_manager.get_datastore_attributes(datastore_uuid)
             attributes.update(tgc_attrs)
+        else:
+            print("!! > Missing TGC manager instance _get_datastore_attributes")
         
         return attributes
     
@@ -437,6 +440,8 @@ class VMstoreCollector:
         if self.tgc_manager:
             tgc_attrs = self.tgc_manager.get_vm_attributes(vm_uuid)
             attributes.update(tgc_attrs)
+        else:
+            print("!! > Missing TGC manager instance _get_vm_attributes")
         
         return attributes
     
@@ -457,5 +462,7 @@ class VMstoreCollector:
         if self.tgc_manager:
             tgc_attrs = self.tgc_manager.get_vdisk_attributes(vdisk_id, vm_uuid)
             attributes.update(tgc_attrs)
+        else:
+            print("!! > Missing TGC manager instance _get_vdisk_attributes")
         
         return attributes

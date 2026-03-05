@@ -77,7 +77,7 @@ class TintriReceiver:
         
         # Setup metric exporter
         if metric_exporter is None:
-            logger.info("> Using console metric exporter")
+            logger.info("> Creating OTLP metric exporter")
             # Default to console exporter for demonstration
             # metric_exporter = ConsoleMetricExporter()
             # print(self.config.exporters)
@@ -91,7 +91,10 @@ class TintriReceiver:
         )
         
         # Create and set meter provider
-        self.meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
+        self.meter_provider = MeterProvider(
+            resource=resource, 
+            metric_readers=[reader]
+        )
         metrics.set_meter_provider(self.meter_provider)
         
         # Get meter for this receiver
