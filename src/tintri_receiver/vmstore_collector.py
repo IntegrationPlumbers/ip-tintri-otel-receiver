@@ -182,11 +182,12 @@ class VMstoreCollector:
                 try:
                     # Get attributes
                     attributes = self._get_datastore_attributes(datastore_uuid)
-
+                    print(f"> Attributes: {attributes}")
                     # Collect performance stats
                     stats = self.vmstore_client.get_datastore_stats_realtime(
                         datastore_uuid
                     )
+
                     perf_metrics = MetricTransformer.transform_datastore_stats(
                         stats, attributes
                     )
