@@ -54,95 +54,179 @@ class MetricTransformer:
         """
         return HEALTH_STATUS_MAP.get(status.upper(), 3)
 
+    # Mapping of DatastoreStat API field names to (metric_name, unit).
+    # Based on Tintri REST API v310 DatastoreStat schema.
+    DATASTORE_STAT_FIELDS = [
+        # Latency metrics (double, ms)
+        ("latencyContentionMs", "tintri.datastore.latency.contention_ms", "ms"),
+        ("latencyDifferenceFromMaxInSetMs", "tintri.datastore.latency.difference_from_max_in_set_ms", "ms"),
+        ("latencyDiskMs", "tintri.datastore.latency.disk_ms", "ms"),
+        ("latencyFlashMs", "tintri.datastore.latency.flash_ms", "ms"),
+        ("latencyHostMs", "tintri.datastore.latency.host_ms", "ms"),
+        ("latencyMirrorMs", "tintri.datastore.latency.mirror_ms", "ms"),
+        ("latencyMirrorReadMs", "tintri.datastore.latency.mirror_read_ms", "ms"),
+        ("latencyMirrorWriteMs", "tintri.datastore.latency.mirror_write_ms", "ms"),
+        ("latencyMirrorWriteNetworkMs", "tintri.datastore.latency.mirror_write_network_ms", "ms"),
+        ("latencyNetworkMs", "tintri.datastore.latency.network_ms", "ms"),
+        ("latencyStorageMs", "tintri.datastore.latency.storage_ms", "ms"),
+        ("latencyThrottleMs", "tintri.datastore.latency.throttle_ms", "ms"),
+        ("latencyTotalMs", "tintri.datastore.latency.total_ms", "ms"),
+        # Latency percentage (double, %)
+        ("latencyIopsPercent", "tintri.datastore.latency.iops_percent", "%"),
+        # Flash (double, %)
+        ("flashHitPercent", "tintri.datastore.flash.hit_percent", "%"),
+        # IO alignment (double, %)
+        ("ioAlignedPercent", "tintri.datastore.io.aligned_percent", "%"),
+        # Operations / IOPS (int/long)
+        ("normalizedReadIops", "tintri.datastore.iops.normalized_read", "ops"),
+        ("normalizedTotalIops", "tintri.datastore.iops.normalized_total", "ops"),
+        ("normalizedWriteIops", "tintri.datastore.iops.normalized_write", "ops"),
+        ("operationsInWeekMaximumIops", "tintri.datastore.iops.week_maximum", "ops"),
+        ("operationsInWeekMinimumIops", "tintri.datastore.iops.week_minimum", "ops"),
+        ("operationsReadIops", "tintri.datastore.iops.read", "ops"),
+        ("operationsTotalIops", "tintri.datastore.iops.total", "ops"),
+        ("operationsWriteIops", "tintri.datastore.iops.write", "ops"),
+        # Throughput (double, MB/s)
+        ("throughputCacheReadMBps", "tintri.datastore.throughput.cache_read", "MB/s"),
+        ("throughputFlashMissMBps", "tintri.datastore.throughput.flash_miss", "MB/s"),
+        ("throughputInWeekMaximumMBps", "tintri.datastore.throughput.week_maximum", "MB/s"),
+        ("throughputInWeekMinimumMBps", "tintri.datastore.throughput.week_minimum", "MB/s"),
+        ("throughputReadMBps", "tintri.datastore.throughput.read", "MB/s"),
+        ("throughputTotalMBps", "tintri.datastore.throughput.total", "MB/s"),
+        ("throughputWriteMBps", "tintri.datastore.throughput.write", "MB/s"),
+        # Performance reserve (double)
+        ("performanceReserveActual", "tintri.datastore.performance_reserve.actual", ""),
+        ("performanceReserveAutoAllocated", "tintri.datastore.performance_reserve.auto_allocated", ""),
+        ("performanceReserveChange", "tintri.datastore.performance_reserve.change", ""),
+        ("performanceReserveChangePercent", "tintri.datastore.performance_reserve.change_percent", "%"),
+        ("performanceReserveIfAutoAllocated", "tintri.datastore.performance_reserve.if_auto_allocated", ""),
+        ("performanceReserveIfPinned", "tintri.datastore.performance_reserve.if_pinned", ""),
+        ("performanceReservePinned", "tintri.datastore.performance_reserve.pinned", ""),
+        ("performanceReserveRemaining", "tintri.datastore.performance_reserve.remaining", ""),
+        ("performanceReserveUsed", "tintri.datastore.performance_reserve.used", ""),
+        # Request size (double, KiB)
+        ("requestSizeKiB", "tintri.datastore.request_size", "KiB"),
+        # Counts (int)
+        ("disksCount", "tintri.datastore.count.disks", "count"),
+        ("vmsCount", "tintri.datastore.count.vms", "count"),
+        ("replLinkCount", "tintri.datastore.count.repl_links", "count"),
+        ("k8sClusterCount", "tintri.datastore.count.k8s_clusters", "count"),
+        ("k8sContainerCount", "tintri.datastore.count.k8s_containers", "count"),
+        ("k8sDeploymentCount", "tintri.datastore.count.k8s_deployments", "count"),
+        ("k8sPersistentVolumeClaimCount", "tintri.datastore.count.k8s_pvcs", "count"),
+        ("k8sPersistentVolumeCount", "tintri.datastore.count.k8s_pvs", "count"),
+        ("k8sPodCount", "tintri.datastore.count.k8s_pods", "count"),
+        # File counts (long)
+        ("maxFiles", "tintri.datastore.files.max", "count"),
+        ("numFiles", "tintri.datastore.files.count", "count"),
+        # NTB recovery counts (long)
+        ("ntbRecoveryCountA", "tintri.datastore.ntb_recovery.count_a", "count"),
+        ("ntbRecoveryCountB", "tintri.datastore.ntb_recovery.count_b", "count"),
+        # Boolean as int
+        ("inactive", "tintri.datastore.inactive", ""),
+    ]
+
+    # Mapping of DatastoreStat capacity/space/savings fields.
+    DATASTORE_CAPACITY_FIELDS = [
+        # Space (double, GiB)
+        ("spaceTotalGiB", "tintri.datastore.capacity.total", "GiB"),
+        ("spaceUsedGiB", "tintri.datastore.capacity.used", "GiB"),
+        ("spaceProvisionedGiB", "tintri.datastore.capacity.provisioned", "GiB"),
+        ("spaceRemainingPhysicalGiB", "tintri.datastore.capacity.remaining_physical", "GiB"),
+        ("spaceUsedChangeGiB", "tintri.datastore.capacity.used_change", "GiB"),
+        ("spaceUsedChangePhysicalGiB", "tintri.datastore.capacity.used_change_physical", "GiB"),
+        ("spaceUsedDifferenceFromMaxInSetGiB", "tintri.datastore.capacity.used_diff_from_max", "GiB"),
+        ("spaceUsedDifferenceFromMaxInSetPhysicalGiB", "tintri.datastore.capacity.used_diff_from_max_physical", "GiB"),
+        ("spaceUsedLiveGiB", "tintri.datastore.capacity.used_live", "GiB"),
+        ("spaceUsedLivePhysicalGiB", "tintri.datastore.capacity.used_live_physical", "GiB"),
+        ("spaceUsedMappedGiB", "tintri.datastore.capacity.used_mapped", "GiB"),
+        ("spaceUsedOtherGiB", "tintri.datastore.capacity.used_other", "GiB"),
+        ("spaceUsedOtherPhysicalGiB", "tintri.datastore.capacity.used_other_physical", "GiB"),
+        ("spaceUsedPhysicalGiB", "tintri.datastore.capacity.used_physical", "GiB"),
+        ("spaceUsedReplicaSnapshotsTintriLogicalGiB", "tintri.datastore.capacity.used_replica_snapshots_logical", "GiB"),
+        ("spaceUsedReplicaSnapshotsTintriPhysicalGiB", "tintri.datastore.capacity.used_replica_snapshots_physical", "GiB"),
+        ("spaceUsedSnapshotsHypervisorGiB", "tintri.datastore.capacity.used_snapshots_hypervisor", "GiB"),
+        ("spaceUsedSnapshotsHypervisorPhysicalGiB", "tintri.datastore.capacity.used_snapshots_hypervisor_physical", "GiB"),
+        ("spaceUsedSnapshotsTintriGiB", "tintri.datastore.capacity.used_snapshots_tintri", "GiB"),
+        ("spaceUsedSnapshotsTintriPhysicalGiB", "tintri.datastore.capacity.used_snapshots_tintri_physical", "GiB"),
+        ("logicalMappedSpaceUsedWithFullSnapshotsGiB", "tintri.datastore.capacity.logical_mapped_with_snapshots", "GiB"),
+        ("logicalUniqueSpaceUsedGiB", "tintri.datastore.capacity.logical_unique", "GiB"),
+        ("thickSpaceUsedGiB", "tintri.datastore.capacity.thick_used", "GiB"),
+        ("compressedSpaceUsedLive", "tintri.datastore.capacity.compressed_live", "GiB"),
+        ("compressedSpaceUsedSnapshotOnly", "tintri.datastore.capacity.compressed_snapshot_only", "GiB"),
+        ("liveLogicalFootprint", "tintri.datastore.capacity.live_logical_footprint", "GiB"),
+        # Space percentages (double/int, %)
+        ("spaceProvisionedPercent", "tintri.datastore.capacity.provisioned_percent", "%"),
+        ("spaceUsedChangePercent", "tintri.datastore.capacity.used_change_percent", "%"),
+        ("spaceUsedPhysicalChangePercent", "tintri.datastore.capacity.used_physical_change_percent", "%"),
+        ("thickSpaceUsedPercent", "tintri.datastore.capacity.thick_used_percent", "%"),
+        ("quotaProvisionedPercent", "tintri.datastore.quota.provisioned_percent", "%"),
+        # Space remaining (int, days)
+        ("spaceRemainingDays", "tintri.datastore.capacity.remaining_days", "days"),
+        # Quota (long, GiB)
+        ("totalQuotaSubscribedGiB", "tintri.datastore.quota.subscribed", "GiB"),
+        # Compression / dedupe / savings factors (double)
+        ("cloneDedupeFactor", "tintri.datastore.savings.clone_dedupe_factor", ""),
+        ("compressionFactor", "tintri.datastore.savings.compression_factor", ""),
+        ("dedupeFactor", "tintri.datastore.savings.dedupe_factor", ""),
+        ("snapshotSavingsFactor", "tintri.datastore.savings.snapshot_factor", ""),
+        ("spaceSavingsFactor", "tintri.datastore.savings.space_factor", ""),
+        ("spaceSavingsFactorIncludingSnapshotSavings", "tintri.datastore.savings.space_factor_with_snapshots", ""),
+        ("totalSpaceSavingsIncludingThinProvisioningFactor", "tintri.datastore.savings.total_with_thin_provisioning", ""),
+    ]
+
     @staticmethod
-    def transform_datastore_stats(
-        stats: Dict[str, Any], attributes: Dict[str, str]
+    def _build_metrics_from_fields(
+        data: Dict[str, Any],
+        field_map: list,
+        attributes: Dict[str, str],
     ) -> List[Dict[str, Any]]:
-        """Transform datastore statistics to metrics.
+        """Build metric dicts from a field mapping table.
 
         Args:
-            stats: Datastore stats from API
+            data: Source data dictionary from API
+            field_map: List of (api_field, metric_name, unit) tuples
             attributes: Metric attributes
 
         Returns:
             List of metric dictionaries
         """
         metrics = []
-
-        # Latency metrics
-        if "latencyDiskMs" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.latency.disk_ms",
-                    "value": stats["latencyDiskMs"],
-                    "unit": "ms",
-                    "attributes": attributes,
-                }
-            )
-
-        if "latencyFlashMs" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.latency.flash_ms",
-                    "value": stats["latencyFlashMs"],
-                    "unit": "ms",
-                    "attributes": attributes,
-                }
-            )
-
-        if "latencyWrite" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.latency.write",
-                    "value": stats["latencyWrite"],
-                    "unit": "ms",
-                    "attributes": attributes,
-                }
-            )
-
-        # Flash Hit percentage
-        if "flashHitPercent" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.flash.hit_perc",
-                    "value": stats["flashHitPercent"],
-                    "unit": "perc",
-                    "attributes": attributes,
-                }
-            )
-
-        if "iopsWrite" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.iops.write",
-                    "value": stats["iopsWrite"],
-                    "unit": "ops",
-                    "attributes": attributes,
-                }
-            )
-
-        # Throughput metrics
-        if "throughputReadMBps" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.throughput.read",
-                    "value": stats["throughputReadMBps"],
-                    "unit": "MB/s",
-                    "attributes": attributes,
-                }
-            )
-
-        if "throughputWriteMBps" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.throughput.write",
-                    "value": stats["throughputWriteMBps"],
-                    "unit": "MB/s",
-                    "attributes": attributes,
-                }
-            )
-
+        for api_field, metric_name, unit in field_map:
+            if api_field in data:
+                value = data[api_field]
+                # Convert booleans to int (0/1)
+                if isinstance(value, bool):
+                    value = int(value)
+                metrics.append(
+                    {
+                        "name": metric_name,
+                        "value": value,
+                        "unit": unit,
+                        "attributes": attributes,
+                    }
+                )
         return metrics
+
+    @staticmethod
+    def transform_datastore_stats(
+        stats: Dict[str, Any], attributes: Dict[str, str]
+    ) -> List[Dict[str, Any]]:
+        """Transform datastore statistics to metrics.
+
+        Parses all performance fields from the Tintri DatastoreStat schema
+        including latency, IOPS, throughput, performance reserve, and counts.
+
+        Args:
+            stats: Datastore stats from API (DatastoreStat object)
+            attributes: Metric attributes
+
+        Returns:
+            List of metric dictionaries
+        """
+        return MetricTransformer._build_metrics_from_fields(
+            stats, MetricTransformer.DATASTORE_STAT_FIELDS, attributes
+        )
 
     @staticmethod
     def transform_datastore_capacity(
@@ -150,44 +234,28 @@ class MetricTransformer:
     ) -> List[Dict[str, Any]]:
         """Transform datastore capacity to metrics.
 
+        Parses all space, savings, and quota fields from the Tintri
+        DatastoreStat schema.
+
         Args:
-            datastore: Datastore info from API
+            datastore: Datastore info from API (DatastoreStat object)
             attributes: Metric attributes
 
         Returns:
             List of metric dictionaries
         """
-        metrics = []
+        metrics = MetricTransformer._build_metrics_from_fields(
+            datastore, MetricTransformer.DATASTORE_CAPACITY_FIELDS, attributes
+        )
 
-        # Capacity metrics
-        if "spaceTotalGiB" in datastore:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.capacity.total",
-                    "value": datastore["spaceTotalGiB"],
-                    "unit": "GB",
-                    "attributes": attributes,
-                }
-            )
-
-        if "spaceUsedGiB" in datastore:
-            metrics.append(
-                {
-                    "name": "tintri.datastore.capacity.used",
-                    "value": datastore["spaceUsedGiB"],
-                    "unit": "GB",
-                    "attributes": attributes,
-                }
-            )
-
-        # Calculate percentage if both available
+        # Calculate used percentage if both total and used are available
         if "spaceTotalGiB" in datastore and "spaceUsedGiB" in datastore:
             pct = MetricTransformer.calculate_capacity_pct(
                 datastore["spaceTotalGiB"], datastore["spaceUsedGiB"]
             )
             metrics.append(
                 {
-                    "name": "tintri.datastore.capacity.used.pct",
+                    "name": "tintri.datastore.capacity.used_percent",
                     "value": pct,
                     "unit": "%",
                     "attributes": attributes,

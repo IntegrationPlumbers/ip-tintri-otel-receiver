@@ -43,68 +43,108 @@ class TestMetricTransformer:
         assert MetricTransformer.encode_health_status("Warning") == 1
     
     def test_transform_datastore_stats(self):
-        """Test datastore stats transformation."""
+        """Test datastore stats transformation with correct DatastoreStat fields."""
         stats = {
-            "latencyRead": 5.2,
-            "latencyWrite": 3.1,
-            "iopsRead": 1500,
-            "iopsWrite": 800,
+            "latencyDiskMs": 5.2,
+            "latencyFlashMs": 1.1,
+            "latencyTotalMs": 6.3,
+            "latencyHostMs": 0.5,
+            "latencyNetworkMs": 0.3,
+            "latencyStorageMs": 4.2,
+            "flashHitPercent": 92.5,
+            "operationsReadIops": 1500,
+            "operationsWriteIops": 800,
+            "operationsTotalIops": 2300,
             "throughputReadMBps": 120.5,
             "throughputWriteMBps": 85.3,
+            "throughputTotalMBps": 205.8,
+            "performanceReserveUsed": 45.0,
+            "vmsCount": 12,
         }
         attributes = {
             "tintri.datastore.uuid": "ds-123",
             "tintri.datastore.name": "datastore1",
         }
-        
+
         metrics = MetricTransformer.transform_datastore_stats(stats, attributes)
-        
-        # Should have 6 metrics (2 latency, 2 IOPS, 2 throughput)
-        assert len(metrics) == 6
-        
+
+        assert len(metrics) == 15
+
         # Check metric names
         metric_names = {m["name"] for m in metrics}
-        assert "tintri.datastore.latency.read" in metric_names
-        assert "tintri.datastore.latency.write" in metric_names
+        assert "tintri.datastore.latency.disk_ms" in metric_names
+        assert "tintri.datastore.latency.flash_ms" in metric_names
+        assert "tintri.datastore.latency.total_ms" in metric_names
+        assert "tintri.datastore.flash.hit_percent" in metric_names
         assert "tintri.datastore.iops.read" in metric_names
         assert "tintri.datastore.iops.write" in metric_names
+        assert "tintri.datastore.iops.total" in metric_names
         assert "tintri.datastore.throughput.read" in metric_names
         assert "tintri.datastore.throughput.write" in metric_names
-        
+        assert "tintri.datastore.throughput.total" in metric_names
+        assert "tintri.datastore.performance_reserve.used" in metric_names
+        assert "tintri.datastore.count.vms" in metric_names
+
         # Check values
-        latency_read = next(m for m in metrics if m["name"] == "tintri.datastore.latency.read")
-        assert latency_read["value"] == 5.2
-        assert latency_read["unit"] == "ms"
-        assert latency_read["attributes"] == attributes
+        latency_disk = next(m for m in metrics if m["name"] == "tintri.datastore.latency.disk_ms")
+        assert latency_disk["value"] == 5.2
+        assert latency_disk["unit"] == "ms"
+        assert latency_disk["attributes"] == attributes
+
+        flash_hit = next(m for m in metrics if m["name"] == "tintri.datastore.flash.hit_percent")
+        assert flash_hit["value"] == 92.5
+        assert flash_hit["unit"] == "%"
+
+        iops_write = next(m for m in metrics if m["name"] == "tintri.datastore.iops.write")
+        assert iops_write["value"] == 800
+        assert iops_write["unit"] == "ops"
     
     def test_transform_datastore_capacity(self):
-        """Test datastore capacity transformation."""
+        """Test datastore capacity transformation with correct DatastoreStat fields."""
         datastore = {
             "uuid": "ds-123",
             "spaceTotalGiB": 1000,
             "spaceUsedGiB": 750,
+            "spaceUsedPhysicalGiB": 500,
+            "spaceProvisionedGiB": 1200,
+            "spaceRemainingPhysicalGiB": 500,
+            "spaceRemainingDays": 120,
+            "compressionFactor": 1.5,
+            "dedupeFactor": 2.0,
+            "spaceSavingsFactor": 3.0,
             "healthState": "HEALTHY",
         }
         attributes = {"tintri.datastore.uuid": "ds-123"}
-        
+
         metrics = MetricTransformer.transform_datastore_capacity(datastore, attributes)
-        
-        # Should have 4 metrics (total, used, pct, health)
-        assert len(metrics) == 4
-        
-        # Check capacity metrics
+
+        # Check that table-driven fields are present
+        metric_names = {m["name"] for m in metrics}
+        assert "tintri.datastore.capacity.total" in metric_names
+        assert "tintri.datastore.capacity.used" in metric_names
+        assert "tintri.datastore.capacity.used_physical" in metric_names
+        assert "tintri.datastore.capacity.provisioned" in metric_names
+        assert "tintri.datastore.capacity.remaining_physical" in metric_names
+        assert "tintri.datastore.capacity.remaining_days" in metric_names
+        assert "tintri.datastore.savings.compression_factor" in metric_names
+        assert "tintri.datastore.savings.dedupe_factor" in metric_names
+        assert "tintri.datastore.savings.space_factor" in metric_names
+        # Computed percentage
+        assert "tintri.datastore.capacity.used_percent" in metric_names
+        # Health
+        assert "tintri.datastore.health.status" in metric_names
+
         total_metric = next(m for m in metrics if m["name"] == "tintri.datastore.capacity.total")
         assert total_metric["value"] == 1000
-        assert total_metric["unit"] == "GB"
-        
+        assert total_metric["unit"] == "GiB"
+
         used_metric = next(m for m in metrics if m["name"] == "tintri.datastore.capacity.used")
         assert used_metric["value"] == 750
-        
-        pct_metric = next(m for m in metrics if m["name"] == "tintri.datastore.capacity.used.pct")
+
+        pct_metric = next(m for m in metrics if m["name"] == "tintri.datastore.capacity.used_percent")
         assert pct_metric["value"] == 75.0
         assert pct_metric["unit"] == "%"
-        
-        # Check health metric
+
         health_metric = next(m for m in metrics if m["name"] == "tintri.datastore.health.status")
         assert health_metric["value"] == 0  # HEALTHY
         assert health_metric["attributes"]["health_status"] == "HEALTHY"
@@ -234,28 +274,28 @@ class TestMetricTransformer:
         # Empty stats
         stats = {}
         attributes = {}
-        
+
         metrics = MetricTransformer.transform_datastore_stats(stats, attributes)
         assert len(metrics) == 0
-        
-        # Partial stats
-        stats = {"latencyRead": 5.0}
+
+        # Partial stats - single field
+        stats = {"latencyDiskMs": 5.0}
         metrics = MetricTransformer.transform_datastore_stats(stats, attributes)
         assert len(metrics) == 1
-        assert metrics[0]["name"] == "tintri.datastore.latency.read"
+        assert metrics[0]["name"] == "tintri.datastore.latency.disk_ms"
     
     def test_transform_preserves_attributes(self):
         """Test that transformations preserve all attributes."""
-        stats = {"latencyRead": 5.0}
+        stats = {"latencyDiskMs": 5.0}
         attributes = {
             "tintri.datastore.uuid": "ds-123",
             "tintri.vmstore.uuid": "vmstore-123",
             "tintri.tenant": "engineering",
             "custom.attribute": "value",
         }
-        
+
         metrics = MetricTransformer.transform_datastore_stats(stats, attributes)
-        
+
         assert len(metrics) == 1
         assert metrics[0]["attributes"] == attributes
         assert "custom.attribute" in metrics[0]["attributes"]
