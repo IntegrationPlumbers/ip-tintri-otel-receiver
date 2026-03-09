@@ -189,12 +189,12 @@ class VMstoreCollector:
                         .get("items", [])[0]
                         .get("sortedStats", [])[0]
                     )
-                    print("> Realtime Stats:")
-                    pprint(stats)
+                    # print("> Realtime Stats:")
+                    # pprint(stats)
                     perf_metrics = MetricTransformer.transform_datastore_stats(
                         stats, attributes
                     )
-                    print(f"> Perf Metrics: {perf_metrics}")
+                    # print(f"> Perf Metrics: {perf_metrics}")
 
                     metrics.extend(perf_metrics)
 
@@ -202,7 +202,7 @@ class VMstoreCollector:
                     capacity_metrics = MetricTransformer.transform_datastore_capacity(
                         datastore, attributes
                     )
-                    print(f"> Capacity Metrics: {capacity_metrics}")
+                    # print(f"> Capacity Metrics: {capacity_metrics}")
                     metrics.extend(capacity_metrics)
 
                     # # Collect alerts
