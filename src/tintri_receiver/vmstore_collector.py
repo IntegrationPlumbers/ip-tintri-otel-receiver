@@ -187,8 +187,8 @@ class VMstoreCollector:
                     stats = self.vmstore_client.get_datastore_stats_realtime(
                         datastore_uuid
                     )
-                    print(f"> Realtime Stats: {stats}")
-
+                    print("> Realtime Stats:")
+                    pprint(stats)
                     perf_metrics = MetricTransformer.transform_datastore_stats(
                         stats, attributes
                     )
