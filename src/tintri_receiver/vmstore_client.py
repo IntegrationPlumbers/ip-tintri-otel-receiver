@@ -128,7 +128,6 @@ class VMstoreRestClient:
                 timeout=self.timeout,
             )
 
-            pprint(response.json())
             response.raise_for_status()
 
             # Handle empty responses

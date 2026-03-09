@@ -174,6 +174,8 @@ class VMstoreCollector:
 
             for datastore in datastores:
                 datastore_uuid = datastore.get("uuid").get("uuid")
+                print(f"> Datastore UUID: {datastore_uuid}")
+
                 if not datastore_uuid:
                     continue
 
