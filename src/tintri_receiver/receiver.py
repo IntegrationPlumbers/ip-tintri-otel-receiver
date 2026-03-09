@@ -9,7 +9,6 @@ from opentelemetry import metrics
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import (
-    ConsoleMetricExporter,
     MetricExportResult,
     MetricsData,
     PeriodicExportingMetricReader,
@@ -211,6 +210,7 @@ class TintriReceiver:
 
         # Start collection threads for each VMstore
         for i, collector in enumerate(self.vmstore_collectors):
+            pprint(collector)
             vmstore_config = self.config.vmstores[i]
 
             thread = threading.Thread(
@@ -266,7 +266,9 @@ class TintriReceiver:
             collector: VMstore collector instance
             interval: Collection interval in seconds
         """
+
         while not self._stop_event.is_set():
+            logger.info("> In collection Loop")
             try:
                 # Collect metrics
                 metrics = collector.collect_all_metrics()
