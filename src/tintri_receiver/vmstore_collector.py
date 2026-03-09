@@ -184,6 +184,7 @@ class VMstoreCollector:
                     attributes = self._get_datastore_attributes(datastore_uuid)
                     print(f"> Attributes: {attributes}")
                     # Collect performance stats
+                    # !!! TODO - Make update this once there are more objects in the lab environment
                     stats = (
                         self.vmstore_client.get_datastore_stats_realtime(datastore_uuid)
                         .get("items", [])[0]
