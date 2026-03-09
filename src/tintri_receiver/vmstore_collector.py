@@ -71,9 +71,9 @@ class VMstoreCollector:
 
             # Collect datastore metrics
             if self.collect_datastores:
-                print("DataStore")
+                # print("DataStore")
                 datastore_metrics = self.collect_datastore_metrics()
-                pprint(datastore_metrics)
+                # pprint(datastore_metrics)
                 all_metrics.extend(datastore_metrics)
                 logger.debug(f"Collected {len(datastore_metrics)} datastore metrics")
             else:
@@ -82,8 +82,8 @@ class VMstoreCollector:
             # Collect VM metrics
             if self.collect_vms:
                 vm_metrics = self.collect_vm_metrics()
-                print("VM")
-                pprint(vm_metrics)
+                # print("VM")
+                # pprint(vm_metrics)
                 all_metrics.extend(vm_metrics)
                 logger.debug(f"Collected {len(vm_metrics)} VM metrics")
             else:
@@ -92,8 +92,8 @@ class VMstoreCollector:
             # Collect VDISK metrics
             if self.collect_vdisks:
                 vdisk_metrics = self.collect_vdisk_metrics()
-                print("VDisk")
-                pprint(vdisk_metrics)
+                # print("VDisk")
+                # pprint(vdisk_metrics)
                 all_metrics.extend(vdisk_metrics)
                 logger.debug(f"Collected {len(vdisk_metrics)} VDISK metrics")
             else:
@@ -424,7 +424,7 @@ class VMstoreCollector:
             tgc_attrs = self.tgc_manager.get_vmstore_attributes(vmstore_uuid)
             attributes.update(tgc_attrs)
         else:
-            print("!! > Missing TGC manager instance _get_vmstore_attributes")
+            # print("!! > Missing TGC manager instance _get_vmstore_attributes")
             # Use VMstore endpoint as name if TGC not available
             attributes["tintri.vmstore.name"] = self.vmstore_id
 

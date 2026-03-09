@@ -30,7 +30,7 @@ class LoggingOTLPMetricExporter(OTLPMetricExporter):
     def export(self, metrics_data: MetricsData, **kwargs) -> MetricExportResult:
         total_points = 0
         metric_names = []
-        pprint(metrics_data)
+        # pprint(metrics_data)
         for resource_metrics in metrics_data.resource_metrics:
             for scope_metrics in resource_metrics.scope_metrics:
                 for metric in scope_metrics.metrics:
@@ -210,7 +210,7 @@ class TintriReceiver:
 
         # Start collection threads for each VMstore
         for i, collector in enumerate(self.vmstore_collectors):
-            pprint(collector)
+            # pprint(collector)
             vmstore_config = self.config.vmstores[i]
 
             thread = threading.Thread(
