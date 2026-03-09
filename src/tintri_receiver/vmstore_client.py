@@ -85,7 +85,7 @@ class VMstoreRestClient:
             # Token typically valid for 30 minutes, refresh after 25 minutes
             self.token_expiry = time.time() + (25 * 60)
 
-            logger.info(f"Successfully authenticated with VMstore: {self.base_url}")
+            # logger.info(f"Successfully authenticated with VMstore: {self.base_url}")
         except requests.exceptions.RequestException as e:
             logger.error(f"Authentication failed for {self.base_url}: {e}")
             raise
@@ -263,7 +263,7 @@ class VMstoreRestClient:
         if self.session_token:
             try:
                 self._make_request("DELETE", "session/logout")
-                logger.info(f"Logged out from VMstore: {self.base_url}")
+                # logger.info(f"Logged out from VMstore: {self.base_url}")
             except Exception as e:
                 logger.warning(f"Error during logout: {e}")
 
