@@ -1,7 +1,6 @@
 """VMstore collector for gathering metrics from a single Tintri VMstore."""
 
 import logging
-from pprint import pprint
 from typing import Any, Dict, List, Optional
 
 from tintri_receiver.metric_transformer import MetricTransformer
@@ -71,9 +70,7 @@ class VMstoreCollector:
 
             # Collect datastore metrics
             if self.collect_datastores:
-                # print("DataStore")
                 datastore_metrics = self.collect_datastore_metrics()
-                # pprint(datastore_metrics)
                 all_metrics.extend(datastore_metrics)
                 logger.debug(f"Collected {len(datastore_metrics)} datastore metrics")
             else:
@@ -82,8 +79,6 @@ class VMstoreCollector:
             # Collect VM metrics
             if self.collect_vms:
                 vm_metrics = self.collect_vm_metrics()
-                # print("VM")
-                # pprint(vm_metrics)
                 all_metrics.extend(vm_metrics)
                 logger.debug(f"Collected {len(vm_metrics)} VM metrics")
             else:
@@ -92,8 +87,6 @@ class VMstoreCollector:
             # Collect VDISK metrics
             if self.collect_vdisks:
                 vdisk_metrics = self.collect_vdisk_metrics()
-                # print("VDisk")
-                # pprint(vdisk_metrics)
                 all_metrics.extend(vdisk_metrics)
                 logger.debug(f"Collected {len(vdisk_metrics)} VDISK metrics")
             else:
@@ -190,20 +183,15 @@ class VMstoreCollector:
                         .get("items", [])[0]
                         .get("sortedStats", [])[0]
                     )
-                    # print("> Realtime Stats:")
-                    # pprint(stats)
                     perf_metrics = MetricTransformer.transform_datastore_stats(
                         stats, attributes
                     )
-                    # print(f"> Perf Metrics: {perf_metrics}")
-
                     metrics.extend(perf_metrics)
 
                     # Collect capacity metrics
                     capacity_metrics = MetricTransformer.transform_datastore_capacity(
                         datastore, attributes
                     )
-                    # print(f"> Capacity Metrics: {capacity_metrics}")
                     metrics.extend(capacity_metrics)
 
                     # # Collect alerts
@@ -425,7 +413,6 @@ class VMstoreCollector:
             tgc_attrs = self.tgc_manager.get_vmstore_attributes(vmstore_uuid)
             attributes.update(tgc_attrs)
         else:
-            # print("!! > Missing TGC manager instance _get_vmstore_attributes")
             # Use VMstore endpoint as name if TGC not available
             attributes["tintri.vmstore.name"] = self.vmstore_id
 

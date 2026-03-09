@@ -2,7 +2,6 @@
 
 import logging
 import threading
-from pprint import pprint
 from typing import Any, Dict, List, Optional
 
 from opentelemetry import metrics
@@ -30,7 +29,6 @@ class LoggingOTLPMetricExporter(OTLPMetricExporter):
     def export(self, metrics_data: MetricsData, **kwargs) -> MetricExportResult:
         total_points = 0
         metric_names = []
-        # pprint(metrics_data)
         for resource_metrics in metrics_data.resource_metrics:
             for scope_metrics in resource_metrics.scope_metrics:
                 for metric in scope_metrics.metrics:
@@ -74,7 +72,6 @@ class TintriReceiver:
         """
         self.config = config
         self.config.validate()
-        # print(config)
         # TGC components
         self.tgc_client: Optional[TGCRestClient] = None
         self.tgc_manager: Optional[TGCInventoryManager] = None
@@ -210,7 +207,6 @@ class TintriReceiver:
 
         # Start collection threads for each VMstore
         for i, collector in enumerate(self.vmstore_collectors):
-            # pprint(collector)
             vmstore_config = self.config.vmstores[i]
 
             thread = threading.Thread(
