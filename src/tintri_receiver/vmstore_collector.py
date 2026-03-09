@@ -187,16 +187,20 @@ class VMstoreCollector:
                     stats = self.vmstore_client.get_datastore_stats_realtime(
                         datastore_uuid
                     )
+                    print(f"> Realtime Stats: {stats}")
 
                     perf_metrics = MetricTransformer.transform_datastore_stats(
                         stats, attributes
                     )
+                    print(f"> Perf Metrics: {perf_metrics}")
+
                     metrics.extend(perf_metrics)
 
                     # Collect capacity metrics
                     capacity_metrics = MetricTransformer.transform_datastore_capacity(
                         datastore, attributes
                     )
+                    print(f"> Capacity Metrics: {capacity_metrics}")
                     metrics.extend(capacity_metrics)
 
                     # # Collect alerts
