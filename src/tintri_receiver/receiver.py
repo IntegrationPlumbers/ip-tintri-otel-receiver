@@ -314,8 +314,8 @@ class TintriReceiver:
                 for metric in metric_list:
                     pprint(metric)
                     gauge.set(
-                        amount=metric.get("value"),
-                        attributes=metric.get("attributes", {}),
+                        amount=metric["value"],
+                        attributes=metric["attributes"],
                     )
             except Exception as e:
                 logger.warning(
