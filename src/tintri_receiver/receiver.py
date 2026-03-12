@@ -313,10 +313,7 @@ class TintriReceiver:
                 # Record observations
                 for metric in metric_list:
                     pprint(metric)
-                    gauge.set(
-                        amount=metric["value"],
-                        attributes=metric["attributes"],
-                    )
+                    gauge.set(metric["value"], metric["attributes"])
             except Exception as e:
                 logger.warning(
                     f"Error exporting metric {metric_name}: {e}", exc_info=True
