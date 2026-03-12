@@ -312,7 +312,7 @@ class TintriReceiver:
 
                 # Record observations
                 for metric in metric_list:
-                    # pprint(metric)
+                    pprint(metric)
                     gauge.set(
                         amount=metric.get("value"),
                         attributes=metric.get("attributes", {}),
