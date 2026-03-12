@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from pprint import pprint
 from typing import Any, Dict, List, Optional
 
 from opentelemetry import metrics
@@ -311,6 +312,7 @@ class TintriReceiver:
 
                 # Record observations
                 for metric in metric_list:
+                    pprint(metric)
                     gauge.set(
                         amount=metric["value"],
                         attributes=metric.get("attributes", {}),
