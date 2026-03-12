@@ -281,85 +281,113 @@ class MetricTransformer:
 
         return metrics
 
+    # Mapping of VirtualMachineStat API field names to (metric_name, unit).
+    # Based on Tintri REST API v310 VirtualMachineStat schema.
+    VM_STAT_FIELDS = [
+        # Latency metrics (double, ms)
+        ("latencyContentionMs", "tintri.vm.latency.contention_ms", "ms"),
+        ("latencyDifferenceFromMaxInSetMs", "tintri.vm.latency.difference_from_max_in_set_ms", "ms"),
+        ("latencyDiskMs", "tintri.vm.latency.disk_ms", "ms"),
+        ("latencyFlashMs", "tintri.vm.latency.flash_ms", "ms"),
+        ("latencyHostMs", "tintri.vm.latency.host_ms", "ms"),
+        ("latencyMirrorMs", "tintri.vm.latency.mirror_ms", "ms"),
+        ("latencyMirrorReadMs", "tintri.vm.latency.mirror_read_ms", "ms"),
+        ("latencyMirrorWriteMs", "tintri.vm.latency.mirror_write_ms", "ms"),
+        ("latencyMirrorWriteNetworkMs", "tintri.vm.latency.mirror_write_network_ms", "ms"),
+        ("latencyNetworkMs", "tintri.vm.latency.network_ms", "ms"),
+        ("latencyStorageMs", "tintri.vm.latency.storage_ms", "ms"),
+        ("latencyThrottleMs", "tintri.vm.latency.throttle_ms", "ms"),
+        ("latencyTotalMs", "tintri.vm.latency.total_ms", "ms"),
+        # Latency/IO percentages (double, %)
+        ("latencyIopsPercent", "tintri.vm.latency.iops_percent", "%"),
+        ("flashHitPercent", "tintri.vm.flash.hit_percent", "%"),
+        ("ioAlignedPercent", "tintri.vm.io.aligned_percent", "%"),
+        # Operations / IOPS (int/long)
+        ("normalizedReadIops", "tintri.vm.iops.normalized_read", "ops"),
+        ("normalizedTotalIops", "tintri.vm.iops.normalized_total", "ops"),
+        ("normalizedWriteIops", "tintri.vm.iops.normalized_write", "ops"),
+        ("operationsReadIops", "tintri.vm.iops.read", "ops"),
+        ("operationsTotalIops", "tintri.vm.iops.total", "ops"),
+        ("operationsWriteIops", "tintri.vm.iops.write", "ops"),
+        # Throughput (double, MB/s)
+        ("throughputCacheReadMBps", "tintri.vm.throughput.cache_read", "MB/s"),
+        ("throughputFlashMissMBps", "tintri.vm.throughput.flash_miss", "MB/s"),
+        ("throughputReadMBps", "tintri.vm.throughput.read", "MB/s"),
+        ("throughputTotalMBps", "tintri.vm.throughput.total", "MB/s"),
+        ("throughputWriteMBps", "tintri.vm.throughput.write", "MB/s"),
+        # CPU / Memory (double)
+        ("cpuPercent", "tintri.vm.cpu.percent", "%"),
+        ("cpuUsageMhz", "tintri.vm.cpu.usage_mhz", "MHz"),
+        ("memoryUsageMiB", "tintri.vm.memory.usage_mib", "MiB"),
+        ("memoryUsagePercent", "tintri.vm.memory.usage_percent", "%"),
+        ("readyPercent", "tintri.vm.cpu.ready_percent", "%"),
+        ("swapWaitPercent", "tintri.vm.cpu.swap_wait_percent", "%"),
+        # Performance reserve (double)
+        ("performanceReserveActual", "tintri.vm.performance_reserve.actual", ""),
+        ("performanceReserveAutoAllocated", "tintri.vm.performance_reserve.auto_allocated", ""),
+        ("performanceReserveChange", "tintri.vm.performance_reserve.change", ""),
+        ("performanceReserveChangePercent", "tintri.vm.performance_reserve.change_percent", "%"),
+        ("performanceReserveIfAutoAllocated", "tintri.vm.performance_reserve.if_auto_allocated", ""),
+        ("performanceReserveIfPinned", "tintri.vm.performance_reserve.if_pinned", ""),
+        ("performanceReservePinned", "tintri.vm.performance_reserve.pinned", ""),
+        ("performanceReserveRemaining", "tintri.vm.performance_reserve.remaining", ""),
+        ("performanceReserveUsed", "tintri.vm.performance_reserve.used", ""),
+        # Space / Capacity (double, GiB)
+        ("spaceProvisionedGiB", "tintri.vm.capacity.provisioned", "GiB"),
+        ("spaceUsedGiB", "tintri.vm.capacity.used", "GiB"),
+        ("spaceUsedChangeGiB", "tintri.vm.capacity.used_change", "GiB"),
+        ("spaceUsedChangePercent", "tintri.vm.capacity.used_change_percent", "%"),
+        ("spaceUsedChangePhysicalGiB", "tintri.vm.capacity.used_change_physical", "GiB"),
+        ("spaceUsedDifferenceFromMaxInSetGiB", "tintri.vm.capacity.used_diff_from_max", "GiB"),
+        ("spaceUsedDifferenceFromMaxInSetPhysicalGiB", "tintri.vm.capacity.used_diff_from_max_physical", "GiB"),
+        ("spaceUsedLiveGiB", "tintri.vm.capacity.used_live", "GiB"),
+        ("spaceUsedLivePhysicalGiB", "tintri.vm.capacity.used_live_physical", "GiB"),
+        ("spaceUsedPhysicalGiB", "tintri.vm.capacity.used_physical", "GiB"),
+        ("spaceUsedPhysicalChangePercent", "tintri.vm.capacity.used_physical_change_percent", "%"),
+        ("spaceUsedSnapshotsHypervisorGiB", "tintri.vm.capacity.used_snapshots_hypervisor", "GiB"),
+        ("spaceUsedSnapshotsHypervisorPhysicalGiB", "tintri.vm.capacity.used_snapshots_hypervisor_physical", "GiB"),
+        ("spaceUsedSnapshotsTintriGiB", "tintri.vm.capacity.used_snapshots_tintri", "GiB"),
+        ("spaceUsedSnapshotsTintriPhysicalGiB", "tintri.vm.capacity.used_snapshots_tintri_physical", "GiB"),
+        ("compressedSpaceUsedLive", "tintri.vm.capacity.compressed_live", "GiB"),
+        ("compressedSpaceUsedSnapshotOnly", "tintri.vm.capacity.compressed_snapshot_only", "GiB"),
+        ("liveLogicalFootprint", "tintri.vm.capacity.live_logical_footprint", "GiB"),
+        ("logicalSpaceUsedLiveUnshared", "tintri.vm.capacity.logical_live_unshared", "GiB"),
+        ("logicalSpaceUsedSnapshotUnshared", "tintri.vm.capacity.logical_snapshot_unshared", "GiB"),
+        ("physicalSpaceUsedLiveUnshared", "tintri.vm.capacity.physical_live_unshared", "GiB"),
+        ("physicalSpaceUsedSnapshotUnshared", "tintri.vm.capacity.physical_snapshot_unshared", "GiB"),
+        ("changeMBPerDay", "tintri.vm.capacity.change_mb_per_day", "MB/day"),
+        # Savings factors (double)
+        ("cloneDedupeFactor", "tintri.vm.savings.clone_dedupe_factor", ""),
+        ("compressionFactor", "tintri.vm.savings.compression_factor", ""),
+        ("snapshotSavingsFactor", "tintri.vm.savings.snapshot_factor", ""),
+        ("spaceSavingsFactor", "tintri.vm.savings.space_factor", ""),
+        ("spaceSavingsFactorIncludingSnapshotSavings", "tintri.vm.savings.space_factor_with_snapshots", ""),
+        # Request size (double, KiB)
+        ("requestSizeKiB", "tintri.vm.request_size", "KiB"),
+        # Boolean as int
+        ("inactive", "tintri.vm.inactive", ""),
+    ]
+
     @staticmethod
     def transform_vm_stats(
         stats: Dict[str, Any], attributes: Dict[str, str]
     ) -> List[Dict[str, Any]]:
         """Transform VM statistics to metrics.
 
+        Parses all performance fields from the Tintri VirtualMachineStat schema
+        including latency, IOPS, throughput, CPU/memory, performance reserve,
+        space/capacity, and savings factors.
+
         Args:
-            stats: VM stats from API
+            stats: VM stats from API (VirtualMachineStat object)
             attributes: Metric attributes
 
         Returns:
             List of metric dictionaries
         """
-        metrics = []
-
-        # Latency metrics
-        if "latencyRead" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.vm.latency.read",
-                    "value": stats["latencyRead"],
-                    "unit": "ms",
-                    "attributes": attributes,
-                }
-            )
-
-        if "latencyWrite" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.vm.latency.write",
-                    "value": stats["latencyWrite"],
-                    "unit": "ms",
-                    "attributes": attributes,
-                }
-            )
-
-        # IOPS metrics
-        if "iopsRead" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.vm.iops.read",
-                    "value": stats["iopsRead"],
-                    "unit": "ops",
-                    "attributes": attributes,
-                }
-            )
-
-        if "iopsWrite" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.vm.iops.write",
-                    "value": stats["iopsWrite"],
-                    "unit": "ops",
-                    "attributes": attributes,
-                }
-            )
-
-        # Throughput metrics
-        if "throughputReadMBps" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.vm.throughput.read",
-                    "value": stats["throughputReadMBps"],
-                    "unit": "MB/s",
-                    "attributes": attributes,
-                }
-            )
-
-        if "throughputWriteMBps" in stats:
-            metrics.append(
-                {
-                    "name": "tintri.vm.throughput.write",
-                    "value": stats["throughputWriteMBps"],
-                    "unit": "MB/s",
-                    "attributes": attributes,
-                }
-            )
-
-        return metrics
+        return MetricTransformer._build_metrics_from_fields(
+            stats, MetricTransformer.VM_STAT_FIELDS, attributes
+        )
 
     @staticmethod
     def transform_vm_capacity(

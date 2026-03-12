@@ -150,26 +150,93 @@ class TestMetricTransformer:
         assert health_metric["attributes"]["health_status"] == "HEALTHY"
     
     def test_transform_vm_stats(self):
-        """Test VM stats transformation."""
+        """Test VM stats transformation with correct VirtualMachineStat fields."""
         stats = {
-            "latencyRead": 2.5,
-            "latencyWrite": 1.8,
-            "iopsRead": 500,
-            "iopsWrite": 300,
+            "latencyDiskMs": 3.1,
+            "latencyFlashMs": 0.8,
+            "latencyTotalMs": 4.5,
+            "latencyHostMs": 0.3,
+            "latencyNetworkMs": 0.2,
+            "latencyStorageMs": 2.8,
+            "flashHitPercent": 88.5,
+            "ioAlignedPercent": 95.0,
+            "operationsReadIops": 500,
+            "operationsWriteIops": 300,
+            "operationsTotalIops": 800,
+            "normalizedReadIops": 450,
             "throughputReadMBps": 45.2,
             "throughputWriteMBps": 30.1,
+            "throughputTotalMBps": 75.3,
+            "cpuPercent": 25.0,
+            "cpuUsageMhz": 1200.0,
+            "memoryUsageMiB": 4096.0,
+            "memoryUsagePercent": 50.0,
+            "readyPercent": 1.2,
+            "performanceReserveUsed": 35.0,
+            "performanceReserveRemaining": 65.0,
+            "spaceUsedGiB": 120.5,
+            "spaceUsedLiveGiB": 100.0,
+            "compressionFactor": 1.8,
+            "spaceSavingsFactor": 2.5,
+            "requestSizeKiB": 32.0,
+            "inactive": False,
         }
         attributes = {"tintri.vm.uuid": "vm-123"}
-        
+
         metrics = MetricTransformer.transform_vm_stats(stats, attributes)
-        
-        assert len(metrics) == 6
-        
-        # Check VM-specific metric names
+
+        assert len(metrics) == 29
+
+        # Check metric names across categories
         metric_names = {m["name"] for m in metrics}
-        assert "tintri.vm.latency.read" in metric_names
+        # Latency
+        assert "tintri.vm.latency.disk_ms" in metric_names
+        assert "tintri.vm.latency.total_ms" in metric_names
+        # IOPS
+        assert "tintri.vm.iops.read" in metric_names
         assert "tintri.vm.iops.write" in metric_names
+        assert "tintri.vm.iops.total" in metric_names
+        # Throughput
         assert "tintri.vm.throughput.read" in metric_names
+        assert "tintri.vm.throughput.total" in metric_names
+        # CPU/Memory
+        assert "tintri.vm.cpu.percent" in metric_names
+        assert "tintri.vm.memory.usage_mib" in metric_names
+        # Performance reserve
+        assert "tintri.vm.performance_reserve.used" in metric_names
+        # Space
+        assert "tintri.vm.capacity.used" in metric_names
+        # Savings
+        assert "tintri.vm.savings.compression_factor" in metric_names
+
+        # Check values
+        latency_disk = next(m for m in metrics if m["name"] == "tintri.vm.latency.disk_ms")
+        assert latency_disk["value"] == 3.1
+        assert latency_disk["unit"] == "ms"
+        assert latency_disk["attributes"] == attributes
+
+        cpu = next(m for m in metrics if m["name"] == "tintri.vm.cpu.percent")
+        assert cpu["value"] == 25.0
+        assert cpu["unit"] == "%"
+
+        iops_read = next(m for m in metrics if m["name"] == "tintri.vm.iops.read")
+        assert iops_read["value"] == 500
+        assert iops_read["unit"] == "ops"
+
+        inactive = next(m for m in metrics if m["name"] == "tintri.vm.inactive")
+        assert inactive["value"] == 0  # False converted to int
+
+    def test_transform_vm_stats_missing_fields(self):
+        """Test VM stats transformation handles missing fields gracefully."""
+        # Empty stats
+        metrics = MetricTransformer.transform_vm_stats({}, {"tintri.vm.uuid": "vm-1"})
+        assert len(metrics) == 0
+
+        # Partial stats - single field
+        stats = {"latencyTotalMs": 5.0}
+        metrics = MetricTransformer.transform_vm_stats(stats, {"tintri.vm.uuid": "vm-1"})
+        assert len(metrics) == 1
+        assert metrics[0]["name"] == "tintri.vm.latency.total_ms"
     
     def test_transform_vm_capacity(self):
         """Test VM capacity transformation."""

@@ -144,37 +144,48 @@ class TestVMstoreCollector:
         # Mock VM list
         mock_vmstore_client.get_vm.return_value = [
             {
-                "uuid": "vm1",
+                "uuid": {"uuid": "vm1"},
                 "name": "vm-server1",
                 "provisionedCapacityGiB": 100,
                 "usedCapacityGiB": 60,
                 "snapshotSpaceGiB": 15,
             },
         ]
-        
-        # Mock VM stats
+
+        # Mock VM stats with paginated response structure
         mock_vmstore_client.get_vm_stats_realtime.return_value = {
-            "latencyRead": 2.5,
-            "latencyWrite": 1.8,
-            "iopsRead": 500,
-            "iopsWrite": 300,
-            "throughputReadMBps": 45.2,
-            "throughputWriteMBps": 30.1,
+            "items": [
+                {
+                    "sortedStats": [
+                        {
+                            "latencyTotalMs": 4.5,
+                            "latencyDiskMs": 3.1,
+                            "operationsReadIops": 500,
+                            "operationsWriteIops": 300,
+                            "throughputReadMBps": 45.2,
+                            "throughputWriteMBps": 30.1,
+                            "cpuPercent": 25.0,
+                            "memoryUsagePercent": 50.0,
+                            "performanceReserveUsed": 35.0,
+                            "spaceUsedGiB": 120.5,
+                        }
+                    ]
+                }
+            ]
         }
-        
-        # Mock alerts
-        mock_vmstore_client.get_alerts.return_value = [{"uuid": "alert1"}]
-        
+
         metrics = collector.collect_vm_metrics()
-        
-        # Should have VM metrics
+
+        # Should have VM metrics (perf stats + capacity)
         assert len(metrics) > 0
-        
-        # Check for specific metrics
+
+        # Check for specific metrics from new schema
         metric_names = {m["name"] for m in metrics}
-        assert "tintri.vm.latency.read" in metric_names
+        assert "tintri.vm.latency.total_ms" in metric_names
+        assert "tintri.vm.iops.read" in metric_names
+        assert "tintri.vm.throughput.read" in metric_names
+        assert "tintri.vm.cpu.percent" in metric_names
         assert "tintri.vm.capacity.provisioned" in metric_names
-        assert "tintri.vm.alerts.active" in metric_names
     
     def test_collect_vdisk_metrics(self, collector, mock_vmstore_client):
         """Test collecting VDISK metrics."""

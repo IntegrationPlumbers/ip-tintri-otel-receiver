@@ -247,7 +247,16 @@ class VMstoreCollector:
                     attributes = self._get_vm_attributes(vm_uuid)
 
                     # Collect performance stats
-                    stats = self.vmstore_client.get_vm_stats_realtime(vm_uuid)
+                    stats_response = self.vmstore_client.get_vm_stats_realtime(vm_uuid)
+                    stats_items = stats_response.get("items", [])
+                    if not stats_items:
+                        logger.warning(f"No stats items for VM {vm_uuid}")
+                        continue
+                    sorted_stats = stats_items[0].get("sortedStats", [])
+                    if not sorted_stats:
+                        logger.warning(f"No sortedStats for VM {vm_uuid}")
+                        continue
+                    stats = sorted_stats[0]
                     perf_metrics = MetricTransformer.transform_vm_stats(
                         stats, attributes
                     )
