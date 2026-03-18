@@ -23,10 +23,10 @@ A Python-based OpenTelemetry Collector Receiver for monitoring Tintri storage in
 # Install from source
 git clone https://github.com/example/tintri-otel-receiver.git
 cd tintri-otel-receiver
-pip install -e .
+uv pip install -e .
 
 # Install with development dependencies
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 ```
 
 ## Configuration
