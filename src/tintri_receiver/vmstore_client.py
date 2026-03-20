@@ -171,6 +171,17 @@ class VMstoreRestClient:
         """
         return self._make_request("GET", f"datastore/{uuid}/statsRealtime")
 
+    def get_datastore_stats_summary(self, uuid: str) -> Dict[str, Any]:
+        """Get latest historic statistics summary for a datastore.
+
+        Args:
+            uuid: Datastore UUID
+
+        Returns:
+            Latest historic DatastoreStat including capacity, savings, and replication stats
+        """
+        return self._make_request("GET", f"datastore/{uuid}/statsSummary")
+
     def get_vm(self, uuid: Optional[str] = None) -> Any:
         """Get VM information.
 

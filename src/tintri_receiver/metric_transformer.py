@@ -126,6 +126,24 @@ class MetricTransformer:
         ("inactive", "tintri.datastore.inactive", ""),
     ]
 
+    # Mapping of ReplicationStat API field names to (metric_name_suffix, unit).
+    # Used for both replicationIncoming and replicationOutgoing nested objects
+    # within DatastoreStat. The direction prefix is added at transform time.
+    REPLICATION_STAT_FIELDS = [
+        ("bytesRemainingIncomingMB", "bytes_remaining_incoming", "MB"),
+        ("bytesRemainingMB", "bytes_remaining", "MB"),
+        ("oneshotProgressPercent", "oneshot_progress", "%"),
+        ("oneshotTimeRemainingSeconds", "oneshot_time_remaining", "s"),
+        ("pathCount", "path_count", "count"),
+        ("throughputIncomingLogicalMBps", "throughput_incoming_logical", "MB/s"),
+        ("throughputIncomingPhysicalMBps", "throughput_incoming_physical", "MB/s"),
+        ("throughputLogicalMBpday", "throughput_logical_per_day", "MB/day"),
+        ("throughputLogicalMBps", "throughput_logical", "MB/s"),
+        ("throughputPhysicalMBpday", "throughput_physical_per_day", "MB/day"),
+        ("throughputPhysicalMBps", "throughput_physical", "MB/s"),
+        ("timeRemainingSeconds", "time_remaining", "s"),
+    ]
+
     # Mapping of DatastoreStat capacity/space/savings fields.
     DATASTORE_CAPACITY_FIELDS = [
         # Space (double, GiB)
@@ -224,8 +242,46 @@ class MetricTransformer:
         Returns:
             List of metric dictionaries
         """
-        return MetricTransformer._build_metrics_from_fields(
+        metrics = MetricTransformer._build_metrics_from_fields(
             stats, MetricTransformer.DATASTORE_STAT_FIELDS, attributes
+        )
+
+        # Extract replication stats from nested objects
+        for direction in ("Incoming", "Outgoing"):
+            repl_data = stats.get(f"replication{direction}")
+            if repl_data and isinstance(repl_data, dict):
+                repl_metrics = MetricTransformer.transform_replication_stats(
+                    repl_data, direction.lower(), "datastore", attributes
+                )
+                metrics.extend(repl_metrics)
+
+        return metrics
+
+    @staticmethod
+    def transform_replication_stats(
+        repl_stats: Dict[str, Any],
+        direction: str,
+        entity_type: str,
+        attributes: Dict[str, str],
+    ) -> List[Dict[str, Any]]:
+        """Transform ReplicationStat to metrics.
+
+        Args:
+            repl_stats: ReplicationStat data from API
+            direction: 'incoming' or 'outgoing'
+            entity_type: 'datastore' or 'vm'
+            attributes: Metric attributes
+
+        Returns:
+            List of metric dictionaries
+        """
+        prefix = f"tintri.{entity_type}.replication.{direction}"
+        field_map = [
+            (api_field, f"{prefix}.{metric_suffix}", unit)
+            for api_field, metric_suffix, unit in MetricTransformer.REPLICATION_STAT_FIELDS
+        ]
+        return MetricTransformer._build_metrics_from_fields(
+            repl_stats, field_map, attributes
         )
 
     @staticmethod

@@ -194,6 +194,27 @@ class VMstoreCollector:
                     )
                     metrics.extend(capacity_metrics)
 
+                    # Collect stats summary (latest historic slice)
+                    # May contain capacity/savings/replication fields
+                    # not present in the realtime response
+                    try:
+                        summary_stats = self.vmstore_client.get_datastore_stats_summary(
+                            datastore_uuid
+                        )
+                        if summary_stats:
+                            summary_perf = MetricTransformer.transform_datastore_stats(
+                                summary_stats, attributes
+                            )
+                            # Only add metrics not already covered by realtime
+                            realtime_names = {m["name"] for m in perf_metrics}
+                            for m in summary_perf:
+                                if m["name"] not in realtime_names:
+                                    metrics.append(m)
+                    except Exception as e:
+                        logger.debug(
+                            f"Stats summary unavailable for datastore {datastore_uuid}: {e}"
+                        )
+
                     # # Collect alerts
                     # alerts = self.vmstore_client.get_alerts(
                     #     entity_type="DATASTORE",
