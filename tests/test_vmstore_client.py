@@ -106,20 +106,6 @@ class TestVMstoreRestClient:
         assert result == {"data": "test"}
     
     @patch.object(VMstoreRestClient, "_make_request")
-    def test_get_vmstore_info(self, mock_request, client):
-        """Test get VMstore info."""
-        mock_request.return_value = {
-            "uuid": "vmstore-uuid-123",
-            "name": "vmstore1",
-            "healthState": "HEALTHY",
-        }
-        
-        result = client.get_vmstore_info()
-        
-        assert result["uuid"] == "vmstore-uuid-123"
-        mock_request.assert_called_once_with("GET", "vmstore")
-    
-    @patch.object(VMstoreRestClient, "_make_request")
     def test_get_datastore_list(self, mock_request, client):
         """Test get datastore list."""
         mock_request.return_value = {

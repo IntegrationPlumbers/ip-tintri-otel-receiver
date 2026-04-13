@@ -105,15 +105,27 @@ class VMstoreCollector:
     def collect_system_metrics(self) -> List[Dict[str, Any]]:
         """Collect system-level metrics.
 
+        Uses TGC inventory for VMstore info when available, falls back to
+        vmstore_id for basic identification.
+
         Returns:
             List of system metric dictionaries
         """
         metrics = []
 
         try:
-            # Get VMstore info
-            vmstore_info = self.vmstore_client.get_vmstore_info()
-            vmstore_uuid = vmstore_info.get("uuid", self.vmstore_id)
+            # Get VMstore info from TGC inventory (GET /vmstore is TGC-only)
+            vmstore_info = {}
+            vmstore_uuid = self.vmstore_id
+            if self.tgc_manager:
+                tgc_vmstore = self.tgc_manager.get_vmstore_info(self.vmstore_id)
+                if tgc_vmstore:
+                    vmstore_info = tgc_vmstore
+                    uuid_obj = tgc_vmstore.get("uuid")
+                    if isinstance(uuid_obj, dict):
+                        vmstore_uuid = uuid_obj.get("uuid", self.vmstore_id)
+                    elif uuid_obj:
+                        vmstore_uuid = uuid_obj
 
             # Get base attributes
             attributes = self._get_vmstore_attributes(vmstore_uuid)
@@ -143,11 +155,52 @@ class VMstoreCollector:
 
         return metrics
 
+    def _resolve_datastores(self) -> List[Dict[str, Any]]:
+        """Resolve datastore list using TGC inventory or VMstore fallback.
+
+        When TGC is available, gets datastore UUIDs from the TGC /vmstore
+        response and fetches each individually via /datastore/{uuid}.
+        Without TGC, lists datastores directly from the VMstore via /datastore.
+
+        Returns:
+            List of datastore dicts
+        """
+        # TGC path: get datastore UUIDs from cached /vmstore response
+        if self.tgc_manager:
+            datastore_ids = self.tgc_manager.get_datastore_ids_for_vmstore(
+                self.vmstore_id
+            )
+            if datastore_ids:
+                datastores = []
+                for ds_id in datastore_ids:
+                    try:
+                        ds = self.vmstore_client.get_datastore(ds_id)
+                        if ds:
+                            datastores.append(ds)
+                    except Exception as e:
+                        logger.warning(f"Error fetching datastore {ds_id}: {e}")
+                return datastores
+            else:
+                logger.warning(
+                    f"TGC has no datastoreId entries for VMstore {self.vmstore_id}, "
+                    "falling back to VMstore /datastore endpoint"
+                )
+
+        # VMstore fallback: list datastores directly
+        datastores_response = self.vmstore_client.get_datastore()
+        if isinstance(datastores_response, dict) and "items" in datastores_response:
+            return datastores_response["items"]
+        elif isinstance(datastores_response, list):
+            return datastores_response
+        elif datastores_response:
+            return [datastores_response]
+        return []
+
     def collect_datastore_metrics(self) -> List[Dict[str, Any]]:
         """Collect datastore metrics.
 
-        Fetches datastore UUIDs from the /vmstore endpoint, then retrieves
-        each datastore individually via /datastore/{uuid}.
+        Uses TGC inventory to resolve datastore UUIDs when available,
+        falls back to the VMstore /datastore endpoint otherwise.
 
         Returns:
             List of datastore metric dictionaries
@@ -155,23 +208,7 @@ class VMstoreCollector:
         metrics = []
 
         try:
-            # Get datastore UUIDs from the vmstore response
-            vmstore_info = self.vmstore_client.get_vmstore_info()
-            datastore_ids = vmstore_info.get("datastoreId", [])
-            if not datastore_ids:
-                logger.warning("No datastoreId entries found in vmstore response")
-                return metrics
-
-            # Fetch each datastore individually
-            datastores = []
-            for ds_id in datastore_ids:
-                try:
-                    ds = self.vmstore_client.get_datastore(ds_id)
-                    if ds:
-                        datastores.append(ds)
-                except Exception as e:
-                    logger.warning(f"Error fetching datastore {ds_id}: {e}")
-
+            datastores = self._resolve_datastores()
             self._datastore_list_cache = datastores
 
             for datastore in datastores:

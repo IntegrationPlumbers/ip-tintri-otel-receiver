@@ -139,14 +139,6 @@ class VMstoreRestClient:
             logger.error(f"API request failed: {method} {url} - {e}")
             raise
 
-    def get_vmstore_info(self) -> Dict[str, Any]:
-        """Get VMstore system information.
-
-        Returns:
-            VMstore information including health, capacity, CPU, memory
-        """
-        return self._make_request("GET", "vmstore")
-
     def get_datastore(self, uuid: Optional[str] = None) -> Any:
         """Get datastore information.
 

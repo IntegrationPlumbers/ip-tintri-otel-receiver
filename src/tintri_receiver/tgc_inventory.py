@@ -259,9 +259,55 @@ class TGCInventoryManager:
         
         return attrs
     
+    def get_datastore_ids_for_vmstore(self, vmstore_id: str) -> List[str]:
+        """Get datastore IDs for a VMstore by hostname, IP, or UUID.
+
+        Looks up the VMstore in the TGC inventory cache and returns the
+        datastoreId list from the /vmstore response.
+
+        Args:
+            vmstore_id: VMstore hostname, IP address, or UUID
+
+        Returns:
+            List of datastore ID strings (empty if not found)
+        """
+        # Try direct UUID lookup first
+        vmstore = self.vmstore_cache.get(vmstore_id)
+        if vmstore:
+            return vmstore.get("datastoreId", [])
+
+        # Search by hostname or IP
+        for vs in self.vmstore_cache.values():
+            if vs.get("hostname") == vmstore_id or vs.get("ipAddress") == vmstore_id:
+                return vs.get("datastoreId", [])
+
+        logger.debug(f"VMstore {vmstore_id} not found in TGC inventory")
+        return []
+
+    def get_vmstore_info(self, vmstore_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached VMstore object by hostname, IP, or UUID.
+
+        Args:
+            vmstore_id: VMstore hostname, IP address, or UUID
+
+        Returns:
+            VMstore dict from TGC cache, or None if not found
+        """
+        # Try direct UUID lookup first
+        vmstore = self.vmstore_cache.get(vmstore_id)
+        if vmstore:
+            return vmstore
+
+        # Search by hostname or IP
+        for vs in self.vmstore_cache.values():
+            if vs.get("hostname") == vmstore_id or vs.get("ipAddress") == vmstore_id:
+                return vs
+
+        return None
+
     def get_vmstore_list(self) -> List[Dict[str, Any]]:
         """Get list of all cached VMstores.
-        
+
         Returns:
             List of VMstore information
         """

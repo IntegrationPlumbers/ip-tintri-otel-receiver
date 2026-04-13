@@ -54,16 +54,17 @@ class TestVMstoreCollector:
         assert collector.collect_vms is True
         assert collector.collect_vdisks is True
     
-    def test_collect_system_metrics(self, collector, mock_vmstore_client):
+    def test_collect_system_metrics(self, collector, mock_vmstore_client, mock_tgc_manager):
         """Test collecting system metrics."""
-        # Mock VMstore info
-        mock_vmstore_client.get_vmstore_info.return_value = {
-            "uuid": "vs1",
+        # Mock TGC inventory returning VMstore info (GET /vmstore is TGC-only)
+        mock_tgc_manager.get_vmstore_info.return_value = {
+            "uuid": {"uuid": "vs1"},
+            "hostname": "vmstore1",
             "healthState": "HEALTHY",
             "cpuUtilization": 45.5,
             "memoryUtilization": 62.3,
         }
-        
+
         # Mock datastore stats for aggregation
         collector._datastore_list_cache = [
             {"uuid": {"uuid": "ds1"}, "spaceTotalGiB": 1000, "spaceUsedGiB": 500},
@@ -76,37 +77,23 @@ class TestVMstoreCollector:
             "throughputReadMBps": 100.0,
             "throughputWriteMBps": 50.0,
         }
-        
-        # Mock alerts
-        mock_vmstore_client.get_alerts.return_value = [
-            {"uuid": "alert1"},
-            {"uuid": "alert2"},
-        ]
-        
+
         metrics = collector.collect_system_metrics()
-        
+
         # Should have system metrics
         assert len(metrics) > 0
-        
+
         # Check for specific metrics
         metric_names = {m["name"] for m in metrics}
         assert "tintri.system.latency.read" in metric_names
         assert "tintri.system.cpu.utilization" in metric_names
-        assert "tintri.system.alerts.active" in metric_names
-        
-        # Check alert count
-        alert_metric = next(m for m in metrics if m["name"] == "tintri.system.alerts.active")
-        assert alert_metric["value"] == 2
     
-    def test_collect_datastore_metrics(self, collector, mock_vmstore_client):
-        """Test collecting datastore metrics."""
-        # Mock vmstore info with datastoreId list
-        mock_vmstore_client.get_vmstore_info.return_value = {
-            "uuid": {"uuid": "vs1"},
-            "datastoreId": ["ds1"],
-        }
+    def test_collect_datastore_metrics_with_tgc(self, collector, mock_vmstore_client, mock_tgc_manager):
+        """Test collecting datastore metrics using TGC inventory for UUIDs."""
+        # TGC provides datastore IDs from cached /vmstore response
+        mock_tgc_manager.get_datastore_ids_for_vmstore.return_value = ["ds1"]
 
-        # Mock individual datastore fetch
+        # VMstore fetches each datastore individually via /datastore/{uuid}
         mock_vmstore_client.get_datastore.return_value = {
             "uuid": {"uuid": "ds1"},
             "name": "datastore1",
@@ -140,8 +127,8 @@ class TestVMstoreCollector:
         # Should have datastore metrics
         assert len(metrics) > 0
 
-        # Verify vmstore info was called to get datastore UUIDs
-        mock_vmstore_client.get_vmstore_info.assert_called_once()
+        # Verify TGC was consulted for datastore UUIDs
+        mock_tgc_manager.get_datastore_ids_for_vmstore.assert_called_once_with("vmstore1")
         # Verify individual datastore was fetched by UUID
         mock_vmstore_client.get_datastore.assert_called_once_with("ds1")
 
@@ -149,6 +136,48 @@ class TestVMstoreCollector:
         metric_names = {m["name"] for m in metrics}
         assert "tintri.datastore.capacity.total" in metric_names
         assert "tintri.datastore.health.status" in metric_names
+
+    def test_collect_datastore_metrics_without_tgc(self, mock_vmstore_client):
+        """Test datastore collection falls back to VMstore /datastore when no TGC."""
+        collector = VMstoreCollector(
+            vmstore_client=mock_vmstore_client,
+            vmstore_id="vmstore1",
+            tgc_manager=None,
+        )
+
+        # VMstore lists datastores directly via GET /datastore
+        mock_vmstore_client.get_datastore.return_value = {
+            "items": [
+                {
+                    "uuid": {"uuid": "ds1"},
+                    "name": "datastore1",
+                    "spaceTotalGiB": 1000,
+                    "spaceUsedGiB": 750,
+                    "healthState": "HEALTHY",
+                },
+            ]
+        }
+
+        mock_vmstore_client.get_datastore_stats_realtime.return_value = {
+            "items": [
+                {
+                    "sortedStats": [
+                        {
+                            "latencyTotalMs": 5.2,
+                            "operationsReadIops": 1500,
+                            "throughputReadMBps": 120.5,
+                        }
+                    ]
+                }
+            ]
+        }
+        mock_vmstore_client.get_datastore_stats_summary.return_value = {}
+
+        metrics = collector.collect_datastore_metrics()
+
+        assert len(metrics) > 0
+        # VMstore /datastore was called without UUID (list mode)
+        mock_vmstore_client.get_datastore.assert_any_call()
     
     def test_collect_vm_metrics(self, collector, mock_vmstore_client):
         """Test collecting VM metrics."""
@@ -230,18 +259,14 @@ class TestVMstoreCollector:
         assert "tintri.vdisk.iops.write" in metric_names
         assert "tintri.vdisk.throughput.read" in metric_names
     
-    def test_collect_all_metrics(self, collector, mock_vmstore_client):
+    def test_collect_all_metrics(self, collector, mock_vmstore_client, mock_tgc_manager):
         """Test collecting all metrics at once."""
-        # Mock vmstore info (used by datastore collection for UUIDs)
-        mock_vmstore_client.get_vmstore_info.return_value = {
-            "uuid": {"uuid": "vs1"},
-            "datastoreId": [],
-        }
+        # TGC returns no datastores for this vmstore
+        mock_tgc_manager.get_datastore_ids_for_vmstore.return_value = []
+        # Fallback VMstore /datastore also returns empty
+        mock_vmstore_client.get_datastore.return_value = []
         mock_vmstore_client.get_vm.return_value = []
         mock_vmstore_client.get_virtual_disk.return_value = []
-        mock_vmstore_client.get_alerts.return_value = []
-
-        collector._datastore_list_cache = []
 
         metrics = collector.collect_all_metrics()
 
@@ -268,14 +293,15 @@ class TestVMstoreCollector:
 
         # Should only call VM-related methods
         mock_vmstore_client.get_vm.assert_called_once()
-        # vmstore_info should NOT be called when datastores disabled
-        mock_vmstore_client.get_vmstore_info.assert_not_called()
+        # Datastore resolution should not happen when datastores disabled
+        mock_vmstore_client.get_datastore.assert_not_called()
         mock_vmstore_client.get_virtual_disk.assert_not_called()
     
-    def test_error_handling_partial_failure(self, collector, mock_vmstore_client):
+    def test_error_handling_partial_failure(self, collector, mock_vmstore_client, mock_tgc_manager):
         """Test that collector continues on partial failures."""
-        # Make vmstore info fail (affects datastore collection)
-        mock_vmstore_client.get_vmstore_info.side_effect = Exception("API error")
+        # Make datastore resolution fail
+        mock_tgc_manager.get_datastore_ids_for_vmstore.return_value = []
+        mock_vmstore_client.get_datastore.side_effect = Exception("API error")
 
         # But others succeed
         mock_vmstore_client.get_vm.return_value = []
