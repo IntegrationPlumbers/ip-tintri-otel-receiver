@@ -146,27 +146,37 @@ class VMstoreCollector:
     def collect_datastore_metrics(self) -> List[Dict[str, Any]]:
         """Collect datastore metrics.
 
+        Fetches datastore UUIDs from the /vmstore endpoint, then retrieves
+        each datastore individually via /datastore/{uuid}.
+
         Returns:
             List of datastore metric dictionaries
         """
         metrics = []
 
         try:
-            # Get datastore list
-            datastores_response = self.vmstore_client.get_datastore()
+            # Get datastore UUIDs from the vmstore response
+            vmstore_info = self.vmstore_client.get_vmstore_info()
+            datastore_ids = vmstore_info.get("datastoreId", [])
+            if not datastore_ids:
+                logger.warning("No datastoreId entries found in vmstore response")
+                return metrics
 
-            # Handle different response formats
-            if isinstance(datastores_response, dict) and "items" in datastores_response:
-                datastores = datastores_response["items"]
-            elif isinstance(datastores_response, list):
-                datastores = datastores_response
-            else:
-                datastores = [datastores_response] if datastores_response else []
+            # Fetch each datastore individually
+            datastores = []
+            for ds_id in datastore_ids:
+                try:
+                    ds = self.vmstore_client.get_datastore(ds_id)
+                    if ds:
+                        datastores.append(ds)
+                except Exception as e:
+                    logger.warning(f"Error fetching datastore {ds_id}: {e}")
 
             self._datastore_list_cache = datastores
 
             for datastore in datastores:
-                datastore_uuid = datastore.get("uuid").get("uuid")
+                uuid_obj = datastore.get("uuid")
+                datastore_uuid = uuid_obj.get("uuid") if isinstance(uuid_obj, dict) else uuid_obj
                 print(f"> Datastore UUID: {datastore_uuid}")
 
                 if not datastore_uuid:
@@ -397,7 +407,8 @@ class VMstoreCollector:
         count = 0
 
         for datastore in self._datastore_list_cache:
-            datastore_uuid = datastore.get("uuid").get("uuid")
+            uuid_obj = datastore.get("uuid")
+            datastore_uuid = uuid_obj.get("uuid") if isinstance(uuid_obj, dict) else uuid_obj
             if not datastore_uuid:
                 continue
 

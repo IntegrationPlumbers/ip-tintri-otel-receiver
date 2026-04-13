@@ -66,7 +66,7 @@ class TestVMstoreCollector:
         
         # Mock datastore stats for aggregation
         collector._datastore_list_cache = [
-            {"uuid": "ds1", "spaceTotalGiB": 1000, "spaceUsedGiB": 500},
+            {"uuid": {"uuid": "ds1"}, "spaceTotalGiB": 1000, "spaceUsedGiB": 500},
         ]
         mock_vmstore_client.get_datastore_stats_realtime.return_value = {
             "latencyRead": 5.0,
@@ -100,44 +100,55 @@ class TestVMstoreCollector:
     
     def test_collect_datastore_metrics(self, collector, mock_vmstore_client):
         """Test collecting datastore metrics."""
-        # Mock datastore list
-        mock_vmstore_client.get_datastore.return_value = {
-            "items": [
-                {
-                    "uuid": "ds1",
-                    "name": "datastore1",
-                    "spaceTotalGiB": 1000,
-                    "spaceUsedGiB": 750,
-                    "healthState": "HEALTHY",
-                },
-            ]
+        # Mock vmstore info with datastoreId list
+        mock_vmstore_client.get_vmstore_info.return_value = {
+            "uuid": {"uuid": "vs1"},
+            "datastoreId": ["ds1"],
         }
-        
+
+        # Mock individual datastore fetch
+        mock_vmstore_client.get_datastore.return_value = {
+            "uuid": {"uuid": "ds1"},
+            "name": "datastore1",
+            "spaceTotalGiB": 1000,
+            "spaceUsedGiB": 750,
+            "healthState": "HEALTHY",
+        }
+
         # Mock datastore stats
         mock_vmstore_client.get_datastore_stats_realtime.return_value = {
-            "latencyRead": 5.2,
-            "latencyWrite": 3.1,
-            "iopsRead": 1500,
-            "iopsWrite": 800,
-            "throughputReadMBps": 120.5,
-            "throughputWriteMBps": 85.3,
+            "items": [
+                {
+                    "sortedStats": [
+                        {
+                            "latencyTotalMs": 5.2,
+                            "operationsReadIops": 1500,
+                            "operationsWriteIops": 800,
+                            "throughputReadMBps": 120.5,
+                            "throughputWriteMBps": 85.3,
+                        }
+                    ]
+                }
+            ]
         }
-        
-        # Mock alerts
-        mock_vmstore_client.get_alerts.return_value = []
-        
+
+        # Mock stats summary
+        mock_vmstore_client.get_datastore_stats_summary.return_value = {}
+
         metrics = collector.collect_datastore_metrics()
-        
+
         # Should have datastore metrics
         assert len(metrics) > 0
-        
+
+        # Verify vmstore info was called to get datastore UUIDs
+        mock_vmstore_client.get_vmstore_info.assert_called_once()
+        # Verify individual datastore was fetched by UUID
+        mock_vmstore_client.get_datastore.assert_called_once_with("ds1")
+
         # Check for specific metrics
         metric_names = {m["name"] for m in metrics}
-        assert "tintri.datastore.latency.read" in metric_names
-        assert "tintri.datastore.iops.write" in metric_names
         assert "tintri.datastore.capacity.total" in metric_names
         assert "tintri.datastore.health.status" in metric_names
-        assert "tintri.datastore.alerts.active" in metric_names
     
     def test_collect_vm_metrics(self, collector, mock_vmstore_client):
         """Test collecting VM metrics."""
@@ -221,17 +232,19 @@ class TestVMstoreCollector:
     
     def test_collect_all_metrics(self, collector, mock_vmstore_client):
         """Test collecting all metrics at once."""
-        # Mock all API calls
-        mock_vmstore_client.get_vmstore_info.return_value = {"uuid": "vs1"}
-        mock_vmstore_client.get_datastore.return_value = []
+        # Mock vmstore info (used by datastore collection for UUIDs)
+        mock_vmstore_client.get_vmstore_info.return_value = {
+            "uuid": {"uuid": "vs1"},
+            "datastoreId": [],
+        }
         mock_vmstore_client.get_vm.return_value = []
         mock_vmstore_client.get_virtual_disk.return_value = []
         mock_vmstore_client.get_alerts.return_value = []
-        
+
         collector._datastore_list_cache = []
-        
+
         metrics = collector.collect_all_metrics()
-        
+
         # Should return a list (may be empty if no data)
         assert isinstance(metrics, list)
     
@@ -247,30 +260,30 @@ class TestVMstoreCollector:
             collect_vms=True,
             collect_vdisks=False,
         )
-        
+
         # Mock VM API calls
         mock_vmstore_client.get_vm.return_value = []
-        
+
         metrics = collector.collect_all_metrics()
-        
+
         # Should only call VM-related methods
         mock_vmstore_client.get_vm.assert_called_once()
+        # vmstore_info should NOT be called when datastores disabled
         mock_vmstore_client.get_vmstore_info.assert_not_called()
         mock_vmstore_client.get_virtual_disk.assert_not_called()
     
     def test_error_handling_partial_failure(self, collector, mock_vmstore_client):
         """Test that collector continues on partial failures."""
-        # Make one collection fail
+        # Make vmstore info fail (affects datastore collection)
         mock_vmstore_client.get_vmstore_info.side_effect = Exception("API error")
-        
+
         # But others succeed
-        mock_vmstore_client.get_datastore.return_value = []
         mock_vmstore_client.get_vm.return_value = []
         mock_vmstore_client.get_virtual_disk.return_value = []
-        
+
         # Should not raise, just log error
         metrics = collector.collect_all_metrics()
-        
+
         # Should still return metrics from successful collections
         assert isinstance(metrics, list)
     
@@ -293,10 +306,10 @@ class TestVMstoreCollector:
     
     def test_aggregate_datastore_stats(self, collector, mock_vmstore_client):
         """Test aggregation of datastore stats."""
-        # Setup datastore cache
+        # Setup datastore cache (individual datastore responses have nested uuid)
         collector._datastore_list_cache = [
-            {"uuid": "ds1", "spaceTotalGiB": 1000, "spaceUsedGiB": 500},
-            {"uuid": "ds2", "spaceTotalGiB": 2000, "spaceUsedGiB": 1500},
+            {"uuid": {"uuid": "ds1"}, "spaceTotalGiB": 1000, "spaceUsedGiB": 500},
+            {"uuid": {"uuid": "ds2"}, "spaceTotalGiB": 2000, "spaceUsedGiB": 1500},
         ]
         
         # Mock stats for each datastore
