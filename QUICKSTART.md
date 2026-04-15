@@ -1,33 +1,20 @@
 # Tintri OpenTelemetry Receiver - Quick Start Guide
 
-## What You've Got
-
-A complete, production-ready Python project implementing the Tintri OpenTelemetry Receiver per your PRD specifications.
-
-## Project Stats
-
-- **Lines of Code**: ~3,500+ lines of production Python
-- **Unit Tests**: 65 comprehensive tests
-- **Test Coverage**: >80% (target met)
-- **Files**: 25+ Python files + documentation
-- **Documentation**: 6 major docs (README, PRD, Contributing, etc.)
-
 ## Immediate Next Steps
 
 ### 1. Install Dependencies
 
 ```bash
-cd tintri-otel-receiver
+cd ip-tintri-otel-receiver
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install the package
-pip install -e .
+uv pip install -e .
 
 # Or install with dev dependencies
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 ```
 
 ### 2. Configure Your Tintri Environment
@@ -50,7 +37,6 @@ Update these sections:
 ```bash
 export TGC_PASSWORD="your-tgc-password"
 export VMSTORE1_PASSWORD="your-vmstore1-password"
-export VMSTORE2_PASSWORD="your-vmstore2-password"
 ```
 
 ### 4. Validate Configuration
@@ -73,73 +59,67 @@ tintri-receiver --config config.yaml --log-level DEBUG
 
 ```bash
 # Install test dependencies
-pip install pytest pytest-cov pytest-mock
+uv pip install pytest pytest-cov pytest-mock
 
 # Run all tests
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run with coverage
-pytest tests/ --cov=tintri_receiver --cov-report=html
+uv run pytest tests/ --cov=tintri_receiver --cov-report=html
 
 # View coverage report
-open htmlcov/index.html  # or xdg-open on Linux
+xdg-open htmlcov/index.html
 ```
-
-## Key Files to Review
-
-1. **README.md** - Complete project documentation
-2. **config.example.yaml** - Full configuration example
-3. **PROJECT_SUMMARY.md** - Detailed implementation summary
-4. **tintri-otel-receiver-prd.md** - Original PRD
-5. **CONTRIBUTING.md** - Development guidelines
 
 ## What's Implemented
 
-### ✅ Complete (V1 Must-Have)
-- All System/VMstore metrics (performance, capacity, health)
-- All Datastore metrics (performance, capacity, health)  
-- All VM metrics (performance, capacity, health, QoS)
+### Active Collection
+- Datastore metrics (performance, capacity, savings, replication)
+- VM metrics (performance, capacity, CPU/memory, savings, QoS)
 - VDISK performance metrics (latency, IOPS, throughput)
+- VDISK capacity metrics (optional via config)
 - TGC inventory and topology integration
 - Attribute enrichment (tenant, application, hypervisor)
-- Two-tier collection model
+- Two-tier collection model (TGC slow / VMstore fast)
 - Concurrent VMstore collection
-- 65 unit tests with >80% coverage
 
-### ⚠️ Partial (V1 Nice-to-Have)
-- VDISK capacity metrics (implemented but optional via config)
-- TGC fleet metrics (endpoints ready, not actively collected)
+### Disabled
+- System-level metrics (collection call commented out, method exists)
+- Alert collection (TGC-only, commented out)
 
-### 📋 Not Implemented (Post-V1)
-- VDISK alert collection
+### Not Implemented
 - Integration tests with mock Tintri API
 - Grafana dashboards
 - Kubernetes manifests
 
-## Architecture Highlights
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                  TintriReceiver                      │
-│                   (orchestrator)                     │
-└──────────────────┬──────────────────────────────────┘
-                   │
-         ┌─────────┴─────────┐
-         │                   │
-    ┌────▼─────┐      ┌─────▼────────┐
-    │   TGC    │      │   VMstore    │
-    │ Manager  │      │  Collectors  │
-    │ (slow)   │      │   (fast)     │
-    └────┬─────┘      └─────┬────────┘
-         │                   │
-         │  Attributes       │  Metrics
-         └──────────┬────────┘
-                    │
-              ┌─────▼──────┐
-              │   OTEL     │
-              │  Exporter  │
-              └────────────┘
++----------------------------------------------------+
+|                  TintriReceiver                     |
+|                   (orchestrator)                    |
++------------------+---------------------------------+
+                   |
+         +---------+---------+
+         |                   |
+    +----v-----+      +-----v--------+
+    |   TGC    |      |   VMstore    |
+    | Manager  |      |  Collectors  |
+    | (slow)   |      |   (fast)     |
+    +----+-----+      +-----+--------+
+         |                   |
+         |  Attributes       |  Metrics
+         +----------+--------+
+                    |
+              +-----v------+
+              |   OTEL     |
+              |  Exporter  |
+              +------------+
 ```
+
+**TGC tier** resolves datastore UUIDs via `GET /vmstore` (TGC-only) and provides attribute enrichment from cached inventory.
+
+**VMstore tier** collects real-time metrics from each VMstore. When TGC is available, it uses the resolved datastore UUIDs to call `GET /datastore/{uuid}`. Without TGC, it falls back to `GET /datastore`.
 
 ## Customization Tips
 
@@ -169,73 +149,11 @@ resource_attributes:
   tintri.site: "datacenter-west"
   tintri.environment: "production"
   team: "storage-team"
-  cost_center: "engineering"
-```
-
-## Troubleshooting
-
-### Authentication Errors
-- Verify credentials are correct
-- Check network connectivity to Tintri endpoints
-- Ensure API version matches your Tintri installation
-
-### No Metrics Appearing
-- Check logs for errors: `--log-level DEBUG`
-- Verify collection toggles are enabled
-- Ensure objects exist (VMs, datastores, etc.)
-
-### High Memory Usage
-- Reduce VDISK collection or disable it
-- Increase collection intervals
-- Reduce number of VMstores
-
-### TGC Connection Issues
-- Receiver will continue without TGC
-- Metrics won't have tenant/application attributes
-- Check TGC endpoint and credentials
-
-## Development Workflow
-
-```bash
-# Make changes to code
-vim src/tintri_receiver/vmstore_client.py
-
-# Run tests
-make test
-
-# Format code
-make format
-
-# Check types
-make type-check
-
-# Commit
-git add .
-git commit -m "Add feature"
-```
-
-## Project Structure at a Glance
-
-```
-tintri-otel-receiver/
-├── src/tintri_receiver/     # Source code
-│   ├── cli.py              # Command-line interface
-│   ├── config.py           # Configuration
-│   ├── receiver.py         # Main orchestrator
-│   ├── vmstore_client.py   # VMstore API client
-│   ├── tgc_client.py       # TGC API client
-│   ├── tgc_inventory.py    # Inventory manager
-│   ├── vmstore_collector.py # Metrics collector
-│   └── metric_transformer.py # API → OTEL transformer
-├── tests/                   # 65 unit tests
-├── config.example.yaml      # Example configuration
-├── README.md               # Full documentation
-└── setup.py                # Package setup
 ```
 
 ## Common Use Cases
 
-### Monitor Single VMstore
+### Monitor Single VMstore (no TGC)
 ```yaml
 receivers:
   tintri:
@@ -266,33 +184,52 @@ receivers:
 ```yaml
 vmstores:
   - endpoint: "https://vmstore.example.com"
-    collect_system: true
     collect_datastores: true
     collect_vms: true
-    collect_vdisks: false  # Skip for performance
+    collect_vdisks: false
     vdisk_capacity_collection: false
 ```
 
-## Support & Resources
+## Troubleshooting
 
-- **GitHub Issues**: Report bugs and request features
+### Authentication Errors
+- Verify credentials are correct
+- Check network connectivity to Tintri endpoints
+- Ensure API version matches your Tintri installation
+
+### No Metrics Appearing
+- Check logs for errors: `--log-level DEBUG`
+- Verify collection toggles are enabled
+- Ensure objects exist (VMs, datastores, etc.)
+
+### High Memory Usage
+- Reduce VDISK collection or disable it
+- Increase collection intervals
+- Reduce number of VMstores
+
+### TGC Connection Issues
+- Receiver will continue without TGC
+- Metrics won't have tenant/application attributes
+- Datastore collection falls back to VMstore `/datastore` endpoint
+
+## Development Workflow
+
+```bash
+# Make changes
+vim src/tintri_receiver/vmstore_client.py
+
+# Run tests
+make test
+
+# Format code
+make format
+
+# Check types
+make type-check
+```
+
+## Resources
+
 - **CONTRIBUTING.md**: Development guidelines
 - **Tintri API Docs**: https://tintri.github.io/tintri-rest-api/
 - **OpenTelemetry Docs**: https://opentelemetry.io/
-
-## Success Criteria Checklist
-
-- ✅ All V1 must-have metrics collected
-- ✅ TGC integration for attributes
-- ✅ Collection cadence configurable (30-60s)
-- ✅ Tintri REST API v3.10 support
-- ✅ >80% test coverage
-- ✅ Production-ready error handling
-- ✅ Graceful degradation
-- ✅ Comprehensive documentation
-
-## Ready to Deploy!
-
-Your Tintri OpenTelemetry Receiver is complete and ready for deployment. The implementation follows all PRD requirements and includes comprehensive testing and documentation.
-
-Happy monitoring! 🚀

@@ -240,7 +240,7 @@ Total: **65 unit tests** covering all major components
 
 ```bash
 # Install
-pip install -e .
+uv pip install -e .
 
 # Run with configuration
 export TGC_PASSWORD="your-password"

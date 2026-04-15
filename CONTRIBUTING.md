@@ -8,21 +8,18 @@ Thank you for your interest in contributing to the Tintri OpenTelemetry Receiver
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/example/tintri-otel-receiver.git
-cd tintri-otel-receiver
+git clone https://github.com/IntegrationPlumbers/ip-tintri-otel-receiver.git
+cd ip-tintri-otel-receiver
 ```
 
-2. Create a virtual environment:
+2. Install [uv](https://docs.astral.sh/uv/) if you don't have it:
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 3. Install development dependencies:
 ```bash
-make install-dev
-# or
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 ```
 
 ## Development Workflow

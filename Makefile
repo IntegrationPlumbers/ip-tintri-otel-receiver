@@ -15,10 +15,10 @@ help:
 	@echo "  validate         Validate example configuration"
 
 install:
-	pip install -e .
+	uv pip install -e .
 
 install-dev:
-	pip install -e ".[dev]"
+	uv pip install -e ".[dev]"
 
 test:
 	pytest tests/ -v

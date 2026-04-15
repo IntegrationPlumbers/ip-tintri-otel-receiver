@@ -35,15 +35,17 @@ tintri-receiver --config config.yaml --validate
 ## Architecture
 
 **Two-tier collection model:**
-1. **TGC tier** (slow, 5-15 min) — `tgc_client.py` + `tgc_inventory.py` — discovers infrastructure topology, caches inventory, provides attribute enrichment for metrics
+1. **TGC tier** (slow, 5-15 min) — `tgc_client.py` + `tgc_inventory.py` — calls `GET /vmstore` (TGC-only) to discover infrastructure, caches inventory, resolves datastore UUIDs, provides attribute enrichment
 2. **VMstore tier** (fast, 30-60 sec) — `vmstore_client.py` + `vmstore_collector.py` — collects real-time performance/capacity metrics per VMstore
+
+**API endpoint ownership:** `GET /vmstore` is TGC-only. VMstore appliances expose `/datastore`, `/vm`, `/virtualDisk` and their sub-resources (e.g. `/datastore/{uuid}/statsRealtime`). The `VMstoreRestClient` must never call `/vmstore`.
 
 **Data flow:**
 - `config.py` — dataclass-based YAML config parsing with env var resolution (`${env:VAR}`)
-- `vmstore_client.py` — REST client for VMstore API v3.10 (session auth, retry logic)
-- `tgc_client.py` — REST client for TGC API
-- `tgc_inventory.py` — background inventory manager, provides attribute lookups by UUID
-- `vmstore_collector.py` — orchestrates per-VMstore collection (system, datastores, VMs, VDISKs)
+- `vmstore_client.py` — REST client for VMstore API v3.10 (session auth, retry logic). No `/vmstore` endpoint.
+- `tgc_client.py` — REST client for TGC API (has `get_vmstores()` for `/vmstore`)
+- `tgc_inventory.py` — background inventory manager, provides attribute lookups and `get_datastore_ids_for_vmstore()` to resolve datastore UUIDs from cached `/vmstore` response
+- `vmstore_collector.py` — orchestrates per-VMstore collection. `_resolve_datastores()` uses TGC for datastore UUID lookup when available, falls back to VMstore `GET /datastore` when not.
 - `metric_transformer.py` — static methods converting raw API responses into metric dicts (`{name, value, unit, attributes}`)
 - `receiver.py` — top-level orchestrator, sets up OTel MeterProvider, manages collection threads, exports via OTLP
 - `cli.py` / `src/cli.py` — CLI entry point with signal handling
