@@ -254,16 +254,22 @@ class VMstoreCollector:
                     attributes = self._get_datastore_attributes(datastore_uuid)
                     print(f"> Attributes: {attributes}")
                     # Collect performance stats
-                    # !!! TODO - Make update this once there are more objects in the lab environment
-                    stats = (
-                        self.datastore_client.get_datastore_stats_realtime(stats_uuid)
-                        .get("items", [])[0]
-                        .get("sortedStats", [])[0]
-                    )
-                    perf_metrics = MetricTransformer.transform_datastore_stats(
-                        stats, attributes
-                    )
-                    metrics.extend(perf_metrics)
+                    realtime = self.datastore_client.get_datastore_stats_realtime(
+                        stats_uuid
+                    ) or {}
+                    items = realtime.get("items") or []
+                    sorted_stats = items[0].get("sortedStats") if items else None
+                    stats = sorted_stats[0] if sorted_stats else None
+                    perf_metrics: List[Dict[str, Any]] = []
+                    if stats:
+                        perf_metrics = MetricTransformer.transform_datastore_stats(
+                            stats, attributes
+                        )
+                        metrics.extend(perf_metrics)
+                    else:
+                        logger.debug(
+                            f"No realtime stats available for datastore {datastore_uuid}"
+                        )
 
                     # Collect capacity metrics
                     capacity_metrics = MetricTransformer.transform_datastore_capacity(
