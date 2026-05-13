@@ -155,45 +155,59 @@ class VMstoreCollector:
 
         return metrics
 
-    def _resolve_datastores(self) -> List[Dict[str, Any]]:
-        """Resolve datastore list using TGC inventory or VMstore fallback.
+    def _resolve_vmstore_uuid(self) -> Optional[str]:
+        """Resolve the VMstore UUID, preferring TGC inventory.
 
-        When TGC is available, gets datastore UUIDs from the TGC /vmstore
-        response and fetches each individually via /datastore/{uuid}.
-        Without TGC, lists datastores directly from the VMstore via /datastore.
-
-        Returns:
-            List of datastore dicts
+        Stats endpoints (/datastore/{uuid}/statsRealtime, /statsSummary) take
+        the VMstore UUID — not the datastore's own UUID — as the path param.
         """
-        # TGC path: get datastore UUIDs from cached /vmstore response
         if self.tgc_manager:
-            datastore_ids = self.tgc_manager.get_datastore_ids_for_vmstore(
-                self.vmstore_id
-            )
-            if datastore_ids:
-                datastores = []
-                for ds_id in datastore_ids:
-                    try:
-                        ds = self.vmstore_client.get_datastore(ds_id)
-                        if ds:
-                            datastores.append(ds)
-                    except Exception as e:
-                        logger.warning(f"Error fetching datastore {ds_id}: {e}")
-                return datastores
-            else:
-                logger.warning(
-                    f"TGC has no datastoreId entries for VMstore {self.vmstore_id}, "
-                    "falling back to VMstore /datastore endpoint"
-                )
+            vs = self.tgc_manager.get_vmstore_info(self.vmstore_id)
+            if vs:
+                uuid_obj = vs.get("uuid")
+                if isinstance(uuid_obj, dict):
+                    return uuid_obj.get("uuid")
+                if isinstance(uuid_obj, str):
+                    return uuid_obj
+        return None
 
-        # VMstore fallback: list datastores directly
-        datastores_response = self.vmstore_client.get_datastore()
-        if isinstance(datastores_response, dict) and "items" in datastores_response:
-            return datastores_response["items"]
-        elif isinstance(datastores_response, list):
-            return datastores_response
-        elif datastores_response:
-            return [datastores_response]
+    def _stats_path_uuid(self, datastore: Dict[str, Any]) -> Optional[str]:
+        """Resolve the UUID to use for /datastore/{uuid}/stats* endpoints.
+
+        Prefers the TGC-resolved VMstore UUID. Falls back to a vmstoreUuid
+        embedded in the datastore object, then to the datastore's own uuid.
+        """
+        uuid = self._resolve_vmstore_uuid()
+        if uuid:
+            return uuid
+        vs_uuid = datastore.get("vmstoreUuid")
+        if vs_uuid:
+            return vs_uuid
+        uuid_obj = datastore.get("uuid")
+        if isinstance(uuid_obj, dict):
+            return uuid_obj.get("uuid")
+        return uuid_obj
+
+    def _resolve_datastores(self) -> List[Dict[str, Any]]:
+        """Fetch the VMstore's local datastore via /datastore/default.
+
+        The /datastore/{uuid} path only accepts the literal 'default' — passing
+        a real UUID returns 400. Each VMstore exposes a single local datastore
+        through this alias. Stats sub-endpoints take the VMstore UUID and are
+        handled by the stats helpers; see _stats_path_uuid.
+        """
+        try:
+            ds = self.vmstore_client.get_datastore("default")
+        except Exception as e:
+            logger.warning(f"Error fetching /datastore/default: {e}")
+            return []
+
+        if isinstance(ds, dict) and "items" in ds:
+            return ds["items"]
+        if isinstance(ds, list):
+            return ds
+        if ds:
+            return [ds]
         return []
 
     def collect_datastore_metrics(self) -> List[Dict[str, Any]]:
@@ -219,6 +233,15 @@ class VMstoreCollector:
                 if not datastore_uuid:
                     continue
 
+                # Stats sub-endpoints (statsRealtime/statsSummary) take the
+                # VMstore UUID, not the datastore UUID.
+                stats_uuid = self._stats_path_uuid(datastore)
+                if not stats_uuid:
+                    logger.warning(
+                        f"No VMstore UUID resolvable for stats lookups on {self.vmstore_id}"
+                    )
+                    continue
+
                 try:
                     # Get attributes
                     attributes = self._get_datastore_attributes(datastore_uuid)
@@ -226,7 +249,7 @@ class VMstoreCollector:
                     # Collect performance stats
                     # !!! TODO - Make update this once there are more objects in the lab environment
                     stats = (
-                        self.vmstore_client.get_datastore_stats_realtime(datastore_uuid)
+                        self.vmstore_client.get_datastore_stats_realtime(stats_uuid)
                         .get("items", [])[0]
                         .get("sortedStats", [])[0]
                     )
@@ -246,7 +269,7 @@ class VMstoreCollector:
                     # not present in the realtime response
                     try:
                         summary_stats = self.vmstore_client.get_datastore_stats_summary(
-                            datastore_uuid
+                            stats_uuid
                         )
                         if summary_stats:
                             summary_perf = MetricTransformer.transform_datastore_stats(
@@ -449,8 +472,12 @@ class VMstoreCollector:
             if not datastore_uuid:
                 continue
 
+            stats_uuid = self._stats_path_uuid(datastore)
+            if not stats_uuid:
+                continue
+
             try:
-                stats = self.vmstore_client.get_datastore_stats_realtime(datastore_uuid)
+                stats = self.vmstore_client.get_datastore_stats_realtime(stats_uuid)
 
                 # Sum performance metrics
                 aggregated["iopsRead"] += stats.get("iopsRead", 0)

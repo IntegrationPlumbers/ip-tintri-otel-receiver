@@ -89,11 +89,14 @@ class TestVMstoreCollector:
         assert "tintri.system.cpu.utilization" in metric_names
     
     def test_collect_datastore_metrics_with_tgc(self, collector, mock_vmstore_client, mock_tgc_manager):
-        """Test collecting datastore metrics using TGC inventory for UUIDs."""
-        # TGC provides datastore IDs from cached /vmstore response
-        mock_tgc_manager.get_datastore_ids_for_vmstore.return_value = ["ds1"]
+        """Test datastore collection uses /datastore/default and VMstore UUID for stats."""
+        # TGC resolves the VMstore UUID for stats path
+        mock_tgc_manager.get_vmstore_info.return_value = {
+            "uuid": {"uuid": "vs-uuid-1"},
+            "hostname": "vmstore1",
+        }
 
-        # VMstore fetches each datastore individually via /datastore/{uuid}
+        # /datastore/{uuid} only accepts 'default' — single datastore returned
         mock_vmstore_client.get_datastore.return_value = {
             "uuid": {"uuid": "ds1"},
             "name": "datastore1",
@@ -127,10 +130,11 @@ class TestVMstoreCollector:
         # Should have datastore metrics
         assert len(metrics) > 0
 
-        # Verify TGC was consulted for datastore UUIDs
-        mock_tgc_manager.get_datastore_ids_for_vmstore.assert_called_once_with("vmstore1")
-        # Verify individual datastore was fetched by UUID
-        mock_vmstore_client.get_datastore.assert_called_once_with("ds1")
+        # /datastore/{uuid} is called with literal 'default'
+        mock_vmstore_client.get_datastore.assert_called_once_with("default")
+        # Stats sub-endpoints use the VMstore UUID resolved via TGC
+        mock_vmstore_client.get_datastore_stats_realtime.assert_called_with("vs-uuid-1")
+        mock_vmstore_client.get_datastore_stats_summary.assert_called_with("vs-uuid-1")
 
         # Check for specific metrics
         metric_names = {m["name"] for m in metrics}
@@ -138,24 +142,19 @@ class TestVMstoreCollector:
         assert "tintri.datastore.health.status" in metric_names
 
     def test_collect_datastore_metrics_without_tgc(self, mock_vmstore_client):
-        """Test datastore collection falls back to VMstore /datastore when no TGC."""
+        """Without TGC, /datastore/default is still used and stats fall back to the datastore uuid."""
         collector = VMstoreCollector(
             vmstore_client=mock_vmstore_client,
             vmstore_id="vmstore1",
             tgc_manager=None,
         )
 
-        # VMstore lists datastores directly via GET /datastore
         mock_vmstore_client.get_datastore.return_value = {
-            "items": [
-                {
-                    "uuid": {"uuid": "ds1"},
-                    "name": "datastore1",
-                    "spaceTotalGiB": 1000,
-                    "spaceUsedGiB": 750,
-                    "healthState": "HEALTHY",
-                },
-            ]
+            "uuid": {"uuid": "ds1"},
+            "name": "datastore1",
+            "spaceTotalGiB": 1000,
+            "spaceUsedGiB": 750,
+            "healthState": "HEALTHY",
         }
 
         mock_vmstore_client.get_datastore_stats_realtime.return_value = {
@@ -176,8 +175,9 @@ class TestVMstoreCollector:
         metrics = collector.collect_datastore_metrics()
 
         assert len(metrics) > 0
-        # VMstore /datastore was called without UUID (list mode)
-        mock_vmstore_client.get_datastore.assert_any_call()
+        mock_vmstore_client.get_datastore.assert_called_once_with("default")
+        # No TGC and no vmstoreUuid on the datastore — falls back to datastore uuid
+        mock_vmstore_client.get_datastore_stats_realtime.assert_called_with("ds1")
     
     def test_collect_vm_metrics(self, collector, mock_vmstore_client):
         """Test collecting VM metrics."""
@@ -261,9 +261,7 @@ class TestVMstoreCollector:
     
     def test_collect_all_metrics(self, collector, mock_vmstore_client, mock_tgc_manager):
         """Test collecting all metrics at once."""
-        # TGC returns no datastores for this vmstore
-        mock_tgc_manager.get_datastore_ids_for_vmstore.return_value = []
-        # Fallback VMstore /datastore also returns empty
+        # /datastore/default returns nothing in this scenario
         mock_vmstore_client.get_datastore.return_value = []
         mock_vmstore_client.get_vm.return_value = []
         mock_vmstore_client.get_virtual_disk.return_value = []
@@ -299,8 +297,7 @@ class TestVMstoreCollector:
     
     def test_error_handling_partial_failure(self, collector, mock_vmstore_client, mock_tgc_manager):
         """Test that collector continues on partial failures."""
-        # Make datastore resolution fail
-        mock_tgc_manager.get_datastore_ids_for_vmstore.return_value = []
+        # Make /datastore/default fail
         mock_vmstore_client.get_datastore.side_effect = Exception("API error")
 
         # But others succeed
@@ -330,43 +327,33 @@ class TestVMstoreCollector:
         # Should not have TGC attributes
         assert "tintri.tgc.name" not in attrs
     
-    def test_aggregate_datastore_stats(self, collector, mock_vmstore_client):
-        """Test aggregation of datastore stats."""
-        # Setup datastore cache (individual datastore responses have nested uuid)
+    def test_aggregate_datastore_stats(self, collector, mock_vmstore_client, mock_tgc_manager):
+        """Test aggregation of datastore stats — stats are pulled by VMstore UUID."""
+        # Each VMstore exposes a single 'default' datastore in the cache
         collector._datastore_list_cache = [
             {"uuid": {"uuid": "ds1"}, "spaceTotalGiB": 1000, "spaceUsedGiB": 500},
-            {"uuid": {"uuid": "ds2"}, "spaceTotalGiB": 2000, "spaceUsedGiB": 1500},
         ]
-        
-        # Mock stats for each datastore
-        def mock_stats(uuid):
-            if uuid == "ds1":
-                return {
-                    "latencyRead": 5.0,
-                    "latencyWrite": 3.0,
-                    "iopsRead": 1000,
-                    "iopsWrite": 500,
-                    "throughputReadMBps": 100.0,
-                    "throughputWriteMBps": 50.0,
-                }
-            else:
-                return {
-                    "latencyRead": 7.0,
-                    "latencyWrite": 4.0,
-                    "iopsRead": 2000,
-                    "iopsWrite": 1000,
-                    "throughputReadMBps": 200.0,
-                    "throughputWriteMBps": 100.0,
-                }
-        
-        mock_vmstore_client.get_datastore_stats_realtime.side_effect = mock_stats
-        
+        # Stats endpoints take the VMstore UUID
+        mock_tgc_manager.get_vmstore_info.return_value = {
+            "uuid": {"uuid": "vs-uuid-1"},
+        }
+
+        mock_vmstore_client.get_datastore_stats_realtime.return_value = {
+            "latencyRead": 5.0,
+            "latencyWrite": 3.0,
+            "iopsRead": 1000,
+            "iopsWrite": 500,
+            "throughputReadMBps": 100.0,
+            "throughputWriteMBps": 50.0,
+        }
+
         aggregated = collector._aggregate_datastore_stats()
-        
-        # Check aggregated values
-        assert aggregated["iopsRead"] == 3000  # 1000 + 2000
-        assert aggregated["iopsWrite"] == 1500  # 500 + 1000
-        assert aggregated["throughputReadMBps"] == 300.0  # 100 + 200
-        assert aggregated["latencyRead"] == 6.0  # (5 + 7) / 2
-        assert aggregated["capacityTotalGiB"] == 3000  # 1000 + 2000
-        assert aggregated["capacityUsedGiB"] == 2000  # 500 + 1500
+
+        # Stats endpoint called with VMstore UUID, not datastore UUID
+        mock_vmstore_client.get_datastore_stats_realtime.assert_called_with("vs-uuid-1")
+        assert aggregated["iopsRead"] == 1000
+        assert aggregated["iopsWrite"] == 500
+        assert aggregated["throughputReadMBps"] == 100.0
+        assert aggregated["latencyRead"] == 5.0
+        assert aggregated["capacityTotalGiB"] == 1000
+        assert aggregated["capacityUsedGiB"] == 500
