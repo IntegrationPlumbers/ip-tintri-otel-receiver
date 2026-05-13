@@ -163,17 +163,26 @@ class TintriReceiver:
                 self.tgc_client = None
                 self.tgc_manager = None
 
-        # Initialize VMstore clients and collectors
+        # Initialize VMstore clients and collectors.
+        # VMstore-scoped endpoints (e.g. /datastore/{vmstoreUuid}/statsSummary)
+        # are served by the TGC keyed off the VMstore UUID — we do not talk to
+        # each VMstore directly.
+        if not self.config.tgc:
+            raise ValueError(
+                "TGC configuration is required: VMstore metrics are collected "
+                "through the TGC, not by connecting to each VMstore directly."
+            )
+
         for vmstore_config in self.config.vmstores:
             try:
-                # Create VMstore client
+                # Route all VMstore API calls through the TGC.
                 vmstore_client = VMstoreRestClient(
-                    base_url=vmstore_config.endpoint,
-                    username=vmstore_config.username,
-                    password=vmstore_config.password,
-                    api_version=vmstore_config.api_version,
-                    timeout=vmstore_config.timeout,
-                    insecure_skip_verify=vmstore_config.insecure_skip_verify,
+                    base_url=self.config.tgc.endpoint,
+                    username=self.config.tgc.username,
+                    password=self.config.tgc.password,
+                    api_version=self.config.tgc.api_version,
+                    timeout=self.config.tgc.timeout,
+                    insecure_skip_verify=self.config.tgc.insecure_skip_verify,
                 )
                 vmstore_client.authenticate()
                 self.vmstore_clients.append(vmstore_client)
