@@ -166,7 +166,7 @@ class TintriReceiver:
         # Initialize VMstore clients and collectors
         for vmstore_config in self.config.vmstores:
             try:
-                # Create VMstore client
+                # Direct VMstore client (for /vm, /virtualDisk, ...)
                 vmstore_client = VMstoreRestClient(
                     base_url=vmstore_config.endpoint,
                     username=vmstore_config.username,
@@ -178,12 +178,30 @@ class TintriReceiver:
                 vmstore_client.authenticate()
                 self.vmstore_clients.append(vmstore_client)
 
+                # The /datastore/{uuid}/... endpoints are served by the TGC
+                # keyed off the VMstore UUID. When TGC is configured, route
+                # only those datastore calls through a second client pointed
+                # at the TGC. Falls back to the direct client when no TGC.
+                datastore_client = vmstore_client
+                if self.config.tgc:
+                    datastore_client = VMstoreRestClient(
+                        base_url=self.config.tgc.endpoint,
+                        username=self.config.tgc.username,
+                        password=self.config.tgc.password,
+                        api_version=self.config.tgc.api_version,
+                        timeout=self.config.tgc.timeout,
+                        insecure_skip_verify=self.config.tgc.insecure_skip_verify,
+                    )
+                    datastore_client.authenticate()
+                    self.vmstore_clients.append(datastore_client)
+
                 # Create VMstore collector
                 vmstore_id = vmstore_config.endpoint.split("//")[-1].split(":")[0]
                 collector = VMstoreCollector(
                     vmstore_client=vmstore_client,
                     vmstore_id=vmstore_id,
                     tgc_manager=self.tgc_manager,
+                    datastore_client=datastore_client,
                     collect_system=vmstore_config.collect_system,
                     collect_datastores=vmstore_config.collect_datastores,
                     collect_vms=vmstore_config.collect_vms,

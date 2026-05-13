@@ -22,6 +22,7 @@ class VMstoreCollector:
         vmstore_client: VMstoreRestClient,
         vmstore_id: str = "default",
         tgc_manager: Optional[TGCInventoryManager] = None,
+        datastore_client: Optional[VMstoreRestClient] = None,
         collect_system: bool = True,
         collect_datastores: bool = True,
         collect_vms: bool = True,
@@ -31,9 +32,14 @@ class VMstoreCollector:
         """Initialize VMstore collector.
 
         Args:
-            vmstore_client: VMstore REST client
+            vmstore_client: VMstore REST client for direct-to-VMstore endpoints
+                (/vm, /virtualDisk, ...).
             vmstore_id: VMstore identifier (UUID or hostname)
             tgc_manager: Optional TGC inventory manager for attribute enrichment
+            datastore_client: REST client used for /datastore/{uuid}/... calls.
+                These endpoints are served by the TGC keyed off the VMstore
+                UUID, so this client is typically pointed at the TGC. Defaults
+                to ``vmstore_client`` when not provided.
             collect_system: Collect system-level metrics
             collect_datastores: Collect datastore metrics
             collect_vms: Collect VM metrics
@@ -43,6 +49,7 @@ class VMstoreCollector:
         self.vmstore_client = vmstore_client
         self.vmstore_id = vmstore_id
         self.tgc_manager = tgc_manager
+        self.datastore_client = datastore_client or vmstore_client
         self.collect_system = collect_system
         self.collect_datastores = collect_datastores
         self.collect_vms = collect_vms
@@ -197,7 +204,7 @@ class VMstoreCollector:
         handled by the stats helpers; see _stats_path_uuid.
         """
         try:
-            ds = self.vmstore_client.get_datastore("default")
+            ds = self.datastore_client.get_datastore("default")
         except Exception as e:
             logger.warning(f"Error fetching /datastore/default: {e}")
             return []
@@ -249,7 +256,7 @@ class VMstoreCollector:
                     # Collect performance stats
                     # !!! TODO - Make update this once there are more objects in the lab environment
                     stats = (
-                        self.vmstore_client.get_datastore_stats_realtime(stats_uuid)
+                        self.datastore_client.get_datastore_stats_realtime(stats_uuid)
                         .get("items", [])[0]
                         .get("sortedStats", [])[0]
                     )
@@ -268,7 +275,7 @@ class VMstoreCollector:
                     # May contain capacity/savings/replication fields
                     # not present in the realtime response
                     try:
-                        summary_stats = self.vmstore_client.get_datastore_stats_summary(
+                        summary_stats = self.datastore_client.get_datastore_stats_summary(
                             stats_uuid
                         )
                         if summary_stats:
@@ -477,7 +484,7 @@ class VMstoreCollector:
                 continue
 
             try:
-                stats = self.vmstore_client.get_datastore_stats_realtime(stats_uuid)
+                stats = self.datastore_client.get_datastore_stats_realtime(stats_uuid)
 
                 # Sum performance metrics
                 aggregated["iopsRead"] += stats.get("iopsRead", 0)
